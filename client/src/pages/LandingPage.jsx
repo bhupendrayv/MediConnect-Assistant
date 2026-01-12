@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiActivity, FiShield, FiUserCheck, FiArrowRight, FiEdit2, FiSave, FiX, FiClock, FiCreditCard, FiStar, FiCamera } from 'react-icons/fi';
-import axios from 'axios';
+import api from '../services/api';
 import { useSelector, useDispatch } from 'react-redux';
 import { message } from 'antd';
 import ThemeToggle from '../components/ThemeToggle';
@@ -224,7 +224,7 @@ const LandingPage = () => {
     // Fetch doctors from backend
     const getAllDoctors = async () => {
         try {
-            const res = await axios.get('/api/v1/user/getAllDoctors');
+            const res = await api.get('/user/getAllDoctors');
             if (res.data.success) {
                 setDoctors(res.data.data);
             }
@@ -259,7 +259,7 @@ const LandingPage = () => {
     const handleSave = async (data = editForm) => {
         try {
             setSaving(true);
-            const res = await axios.post('/api/v1/user/updateDoctorPublic', data);
+            const res = await api.post('/user/updateDoctorPublic', data);
             if (res.data.success) {
                 message.success('Doctor details updated successfully!');
                 setSelectedDoc(res.data.data); // Update modal with new data
@@ -290,7 +290,7 @@ const LandingPage = () => {
             try {
                 setUploading(true);
                 const base64Image = reader.result;
-                const res = await axios.post('/api/v1/user/updateDoctorPublic', {
+                const res = await api.post('/user/updateDoctorPublic', {
                     _id: doctorId,
                     image: base64Image
                 });

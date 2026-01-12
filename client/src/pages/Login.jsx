@@ -3,7 +3,7 @@ import { Form, Input, message } from 'antd';
 import { useDispatch } from 'react-redux';
 import { showLoading, hideLoading } from '../redux/features/alertSlice';
 import { Link, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../services/api';
 import { FiMail, FiLock, FiActivity, FiArrowRight } from 'react-icons/fi';
 import { motion } from 'framer-motion';
 
@@ -14,7 +14,7 @@ const Login = () => {
     const onFinishHandler = async (values) => {
         try {
             dispatch(showLoading());
-            const res = await axios.post('/api/v1/user/login', values);
+            const res = await api.post('/user/login', values);
             dispatch(hideLoading());
             if (res.data.success) {
                 localStorage.setItem('token', res.data.token);

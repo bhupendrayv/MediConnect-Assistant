@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../../services/api';
 import { FiPhone, FiMapPin, FiMail } from 'react-icons/fi';
 
 const TopBar = () => {
@@ -12,7 +12,7 @@ const TopBar = () => {
     useEffect(() => {
         const fetchSettings = async () => {
             try {
-                const res = await axios.get('/api/v1/user/getPublicSiteSettings');
+                const res = await api.get('/user/getPublicSiteSettings');
                 if (res.data.success) {
                     setSettings(res.data.data);
                 }

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import api from '../services/api';
 import Layout from '../components/layout/Layout';
 import { Row, Col, message } from 'antd';
 import { useNavigate } from 'react-router-dom';
@@ -28,7 +28,7 @@ const HomePage = () => {
 
     const handleQuickEditSave = async () => {
         try {
-            const res = await axios.post('/api/v1/user/updateDoctorPublic', {
+            const res = await api.post('/user/updateDoctorPublic', {
                 _id: editingDoctor._id,
                 timings: tempData.timings,
                 feesPerConsultation: tempData.feesPerConsultation
@@ -47,7 +47,7 @@ const HomePage = () => {
 
     const getDashboardStats = async () => {
         try {
-            const res = await axios.get('/api/v1/user/get-dashboard-stats', {
+            const res = await api.get('/user/get-dashboard-stats', {
                 headers: {
                     Authorization: "Bearer " + localStorage.getItem('token'),
                 },
@@ -62,7 +62,7 @@ const HomePage = () => {
 
     const getUserData = async () => {
         try {
-            const res = await axios.get('/api/v1/user/getAllDoctors', {
+            const res = await api.get('/user/getAllDoctors', {
                 headers: {
                     Authorization: "Bearer " + localStorage.getItem('token'),
                 },

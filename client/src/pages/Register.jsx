@@ -3,7 +3,7 @@ import { Form, Input, message } from 'antd';
 import { useDispatch } from 'react-redux';
 import { showLoading, hideLoading } from '../redux/features/alertSlice';
 import { Link, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../services/api';
 import { FiUser, FiPlusSquare, FiMail, FiLock, FiActivity } from 'react-icons/fi';
 import { motion } from 'framer-motion';
 
@@ -17,7 +17,7 @@ const Register = () => {
         try {
             dispatch(showLoading());
             const finalValues = { ...values, role: selectedRole };
-            const res = await axios.post('/api/v1/user/register', finalValues);
+            const res = await api.post('/user/register', finalValues);
             dispatch(hideLoading());
             if (res.data.success) {
                 message.success('Account Created Successfully!');
