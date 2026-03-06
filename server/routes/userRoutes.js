@@ -53,6 +53,7 @@ router.post('/updateDoctorPublic', updatePublicDoctorController);
 // Update User Profile (Image)
 router.post('/update-profile-picture', authMiddleware, updateUserProfileController);
 
+
 // Public Site Settings
 router.get('/getPublicSiteSettings', getSiteSettingsController);
 

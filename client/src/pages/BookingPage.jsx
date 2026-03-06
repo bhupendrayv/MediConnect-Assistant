@@ -41,6 +41,7 @@ const BookingPage = () => {
     // State for Available Services (to allow price editing)
     const [availableServices, setAvailableServices] = useState([]);
 
+
     const getDoctorData = async () => {
         try {
             const res = await axios.post('/api/v1/doctor/getDoctorById', { doctorId: params.doctorId }, {
@@ -137,13 +138,16 @@ const BookingPage = () => {
                         Authorization: "Bearer " + localStorage.getItem('token'),
                     },
                 });
-            dispatch(hideLoading());
+
             if (res.data.success) {
-                setAppointmentCode(res.data.data.appointmentCode);
-                setBookedAppointment(res.data.data);
+                const appointment = res.data.data;
+                setAppointmentCode(appointment.appointmentCode);
+                setBookedAppointment({ ...appointment });
                 setStep(5); // Success step
                 message.success('Appointment booked successfully!');
+                dispatch(hideLoading());
             } else {
+                dispatch(hideLoading());
                 message.error(res.data.message || 'Booking failed. Please try again.');
             }
         } catch (error) {
@@ -158,6 +162,29 @@ const BookingPage = () => {
     useEffect(() => {
         getDoctorData();
     }, []);
+
+    // Helper to get image based on gender
+    const getDoctorImg = (doc) => {
+        if (!doc) return "/doctors/female-doctor.png";
+        if (doc.image) {
+            // If it's a base64 or full URL, return as is
+            if (doc.image.startsWith('data:') || doc.image.startsWith('http')) return doc.image;
+
+            // If it has 'females/' or 'males/' prefix, strip it (likely data correction needed)
+            let imgPath = doc.image;
+            if (String(imgPath).includes('/')) {
+                imgPath = String(imgPath).split('/').pop();
+            }
+
+            // Return with correct path
+            return `/doctors/${imgPath}`;
+        }
+
+        // Use gender-specific default images
+        if (doc.gender === 'female') return "/doctors/female-doctor.png";
+        if (doc.gender === 'male') return "/doctors/male-doctor.png";
+        return "/doctors/female-doctor.png";
+    };
 
     useEffect(() => {
         if (user?.name) {
@@ -236,11 +263,7 @@ const BookingPage = () => {
                                     className="bg-white rounded-[3rem] p-10 border border-slate-100 shadow-xl shadow-slate-200/50 text-center sticky top-24"
                                 >
                                     <div className="w-32 h-32 bg-gradient-to-br from-primary to-emerald-600 rounded-[2.5rem] mx-auto mb-8 flex items-center justify-center text-white text-5xl font-black shadow-2xl shadow-emerald-200 relative group/avatar overflow-hidden">
-                                        {doctor.image ? (
-                                            <img src={doctor.image} alt={doctor.name} className="w-full h-full object-cover" />
-                                        ) : (
-                                            doctor.name.charAt(0).toUpperCase()
-                                        )}
+                                        <img src={getDoctorImg(doctor)} alt={doctor.name} className="w-full h-full object-cover" />
 
                                         {/* Unified Edit Button - Always Visible for Authorized */}
                                         {((user?.role === 'admin' || user?.isAdmin) || String(user?._id) === String(doctor?._id) || String(user?._id) === String(doctor?.userId)) && (
@@ -269,15 +292,6 @@ const BookingPage = () => {
                                             <div className="text-left">
                                                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Available Hours</p>
                                                 <p className="text-xl font-black text-slate-800 italic leading-none mt-1">{doctor.timings?.start || '-'} - {doctor.timings?.end || '-'}</p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-4 p-5 bg-slate-50 rounded-[1.5rem] relative group/edit">
-                                            <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center text-primary text-2xl">
-                                                <FiCreditCard />
-                                            </div>
-                                            <div className="text-left">
-                                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Consultation Fee</p>
-                                                <p className="text-2xl font-black text-slate-800 italic leading-none mt-1">₹{doctor.feesPerConsultation || '0'}</p>
                                             </div>
                                         </div>
                                     </div>
@@ -521,8 +535,8 @@ const BookingPage = () => {
                                                 <p className="text-white/60 text-[10px] font-bold uppercase tracking-widest leading-relaxed">Please present this code to the specialist for verification.</p>
                                             </div>
                                             <div className="flex flex-col w-full gap-4">
-                                                <button onClick={() => setShowReceipt(true)} className="w-full h-16 bg-primary text-white rounded-2xl font-black uppercase tracking-widest italic shadow-xl shadow-primary/20">View Full Receipt</button>
-                                                <button onClick={() => navigate('/appointments')} className="w-full h-16 bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-widest italic shadow-xl shadow-emerald-600/20">My Appointments</button>
+                                                <button onClick={() => setShowReceipt(true)} className="w-full h-16 bg-primary/10 text-primary rounded-2xl font-black uppercase tracking-widest italic">View Details</button>
+                                                <button onClick={() => navigate('/appointments')} className="w-full h-16 bg-emerald-600/10 text-emerald-600 rounded-2xl font-black uppercase tracking-widest italic">My Appointments</button>
                                                 <button onClick={() => navigate('/dashboard')} className="text-slate-400 font-bold text-xs uppercase tracking-[0.2em] hover:text-slate-800 transition-colors py-2">Back to Dashboard</button>
                                             </div>
                                         </motion.div>
@@ -540,6 +554,7 @@ const BookingPage = () => {
                         onClose={() => setShowReceipt(false)}
                     />
                 )}
+
                 {/* Quick Edit Modal */}
                 {showEditModal && (
                     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">

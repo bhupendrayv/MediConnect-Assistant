@@ -3,7 +3,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { hideLoading, showLoading } from '../redux/features/alertSlice';
 import { setUser } from '../redux/features/userSlice';
-import axios from 'axios';
+import api from '../services/api';
 
 export default function ProtectedRoute({ children }) {
     const dispatch = useDispatch();
@@ -17,7 +17,7 @@ export default function ProtectedRoute({ children }) {
         try {
             hasFetched.current = true;
             dispatch(showLoading());
-            const res = await axios.post('/api/v1/user/getUserData',
+            const res = await api.post('/user/getUserData',
                 { token: localStorage.getItem('token') },
                 {
                     headers: {

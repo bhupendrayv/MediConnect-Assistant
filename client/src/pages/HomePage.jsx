@@ -4,7 +4,7 @@ import Layout from '../components/layout/Layout';
 import { Row, Col, message } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import { FiActivity, FiCalendar, FiClock, FiPlusCircle, FiSearch, FiStar, FiArrowRight, FiUserCheck, FiHash, FiDroplet, FiCreditCard, FiEdit2 } from 'react-icons/fi';
+import { FiActivity, FiCalendar, FiClock, FiPlusCircle, FiSearch, FiStar, FiArrowRight, FiUserCheck, FiHash, FiDroplet, FiEdit2 } from 'react-icons/fi';
 import { motion } from 'framer-motion';
 
 const HomePage = () => {
@@ -85,7 +85,21 @@ const HomePage = () => {
 
     // Helper to get image based on gender
     const getDoctorImg = (doc) => {
-        if (doc.image) return doc.image;
+        if (doc.image) {
+            // If it's a base64 or full URL, return as is
+            if (doc.image.startsWith('data:') || doc.image.startsWith('http')) return doc.image;
+
+            // If it has 'females/' or 'males/' prefix, strip it (likely data correction needed)
+            let imgPath = doc.image;
+            if (imgPath.includes('/')) {
+                imgPath = imgPath.split('/').pop();
+            }
+
+            // Return with correct path
+            return `/doctors/${imgPath}`;
+        }
+
+        // Use gender-specific default images
         if (doc.gender === 'female') return "/doctors/female-doctor.png";
         if (doc.gender === 'male') return "/doctors/male-doctor.png";
         return "/doctors/female-doctor.png";
@@ -125,7 +139,7 @@ const HomePage = () => {
             icon: <FiClock />,
             color: "text-teal-600",
             bg: "bg-teal-50",
-            path: user?.isDoctor ? '/doctor-appointments' : '/appointments'
+            path: '/appointments'
         },
         {
             label: "AI Diagnosis",
@@ -291,13 +305,6 @@ const HomePage = () => {
                                                     <p className="text-lg font-black text-slate-800 italic leading-none">{doctor.timings?.start || '-'} - {doctor.timings?.end || '-'}</p>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-4 p-5 bg-slate-50 rounded-[1.5rem] relative group/edit">
-                                                <FiCreditCard className="text-primary text-xl" />
-                                                <div className="text-left">
-                                                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Consultation Fee</p>
-                                                    <p className="text-lg font-black text-slate-800 italic leading-none">₹{doctor.feesPerConsultation || '0'}</p>
-                                                </div>
-                                            </div>
                                         </div>
                                         <div className="mt-6 flex items-center justify-end px-2">
                                             <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center group-hover:bg-primary transition-colors" title="Book Now">
@@ -404,13 +411,6 @@ const HomePage = () => {
                                                         <div className="text-left">
                                                             <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Available Hours</p>
                                                             <span className="text-sm font-black text-slate-700 italic">{doctor.timings?.start || '-'} - {doctor.timings?.end || '-'}</span>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center gap-4 p-4 bg-white rounded-xl">
-                                                        <FiCreditCard className="text-primary text-lg" />
-                                                        <div className="text-left">
-                                                            <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Consultation Fee</p>
-                                                            <span className="text-sm font-black text-green-600 italic">₹{doctor.feesPerConsultation || '0'}</span>
                                                         </div>
                                                     </div>
                                                 </div>

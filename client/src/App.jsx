@@ -16,10 +16,10 @@ import DoctorAppointments from './pages/doctor/DoctorAppointments';
 import AIHelper from './pages/AIHelper';
 import VerifyAppointment from './pages/VerifyAppointment';
 import BloodBank from './pages/BloodBank';
-import SiteSettings from './pages/admin/SiteSettings';
 import { FiActivity } from 'react-icons/fi';
 
 import LandingPage from './pages/LandingPage';
+import SiteSettings from './pages/admin/SiteSettings';
 
 function App() {
     const { loading } = useSelector(state => state.alerts);
@@ -82,6 +82,7 @@ function App() {
                         <SiteSettings />
                     </ProtectedRoute>
                 } />
+
                 <Route path="/doctor/profile/:id" element={
                     <ProtectedRoute>
                         <Profile />

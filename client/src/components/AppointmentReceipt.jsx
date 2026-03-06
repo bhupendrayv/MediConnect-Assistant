@@ -413,9 +413,11 @@ Medical Issue: ${appointment.userInfo?.problem || 'N/A'}
                             ))}
                         </div>
                         <div className="border-t-2 border-slate-200 pt-3 flex justify-between items-center">
-                            <span className="font-black uppercase text-xs tracking-widest text-slate-500">Total Amount</span>
+                            <div className="text-left">
+                                <span className="font-black uppercase text-xs tracking-widest text-slate-500">Total Amount</span>
+                            </div>
                             <span className="font-black text-2xl text-emerald-600">
-                                ₹{(appointment.doctorInfo?.feesPerConsultation || 0) + appointment.selectedServices.reduce((acc, curr) => acc + (curr.price || 0), 0)}
+                                ₹{appointment.totalAmount || ((appointment.doctorInfo?.feesPerConsultation || 0) + appointment.selectedServices.reduce((acc, curr) => acc + (curr.price || 0), 0))}
                             </span>
                         </div>
                     </div>

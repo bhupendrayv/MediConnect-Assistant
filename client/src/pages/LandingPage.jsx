@@ -313,8 +313,21 @@ const LandingPage = () => {
 
     // Helper to get image based on gender
     const getDoctorImg = (doc) => {
-        if (doc.image) return doc.image;
-        // Use gender-specific images
+        if (doc.image) {
+            // If it's a base64 or full URL, return as is
+            if (doc.image.startsWith('data:') || doc.image.startsWith('http')) return doc.image;
+
+            // If it has 'females/' or 'males/' prefix, strip it (likely data correction needed)
+            let imgPath = doc.image;
+            if (imgPath.includes('/')) {
+                imgPath = imgPath.split('/').pop();
+            }
+
+            // Return with correct path
+            return `/doctors/${imgPath}`;
+        }
+
+        // Use gender-specific default images
         if (doc.gender === 'female') {
             return "/doctors/female-doctor.png";
         } else if (doc.gender === 'male') {
@@ -379,8 +392,10 @@ const LandingPage = () => {
                             </span>
                             Trusted Healthcare Solutions
                         </div>
-                        <h1 className="text-6xl md:text-8xl font-black text-slate-900 dark:text-white leading-[0.95] mb-8">
-                            Modern Care for <br />
+                        <h1 className="text-6xl md:text-8xl font-black leading-[0.95] mb-8">
+                            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-sky-400 dark:to-indigo-400">
+                                Modern Care for
+                            </span> <br />
                             <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-emerald-600 to-indigo-600">
                                 Modern Life.
                             </span>

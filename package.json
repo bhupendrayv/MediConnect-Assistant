@@ -1,0 +1,10 @@
+{
+    "name": "smart-healthcare-webapp",
+    "version": "1.0.0",
+    "description": "Smart Healthcare Assistant Root",
+    "scripts": {
+        "server": "npm run dev --prefix server",
+        "client": "npm run dev --prefix client",
+        "dev": "npm run server & npm run client"
+    }
+}

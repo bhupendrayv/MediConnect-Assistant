@@ -20,7 +20,6 @@ const Layout = ({ children }) => {
         { name: 'Appointments', path: '/appointments', icon: <FiCalendar /> },
         { name: 'Symptom AI', path: '/ai-diagnosis', icon: <FiCpu /> },
         { name: 'Blood Bank', path: '/blood-bank', icon: <FiDroplet style={{ color: '#ef4444' }} /> },
-
     ];
 
     const doctorMenu = [

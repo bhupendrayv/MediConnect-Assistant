@@ -49,7 +49,11 @@ const appointmentSchema = new mongoose.Schema({
     selectedServices: [{
         name: { type: String, required: true },
         price: { type: Number, required: true }
-    }]
+    }],
+    totalAmount: {
+        type: Number,
+        default: 0
+    }
 }, { timestamps: true });
 
 const Appointment = mongoose.model('Appointment', appointmentSchema);

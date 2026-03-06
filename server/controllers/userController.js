@@ -128,6 +128,10 @@ const bookAppointmentController = async (req, res) => {
         // Generate unique appointment code (e.g., HH-ABCD)
         const appointmentCode = `HH-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
 
+        // Calculate total amount
+        const servicesTotal = (selectedServices || []).reduce((acc, curr) => acc + (curr.price || 0), 0);
+        const totalAmount = (doctorInfo.feesPerConsultation || 0) + servicesTotal;
+
         const newAppointment = new Appointment({
             doctorId,
             userId,
@@ -137,7 +141,8 @@ const bookAppointmentController = async (req, res) => {
             time,
             appointmentCode,
             selectedServices: selectedServices || [],
-            status: 'pending'
+            status: 'pending',
+            totalAmount
         });
 
         await newAppointment.save();
@@ -330,18 +335,30 @@ const getDiagnosisHistoryController = async (req, res) => {
 const getDashboardStatsController = async (req, res) => {
     try {
         const userId = req.body.userId;
-        const upcomingAppointmentsCount = await Appointment.countDocuments({ userId, status: 'pending' }); // Can be 'approved' too depending on definition
+        const user = await User.findById(userId);
+
+        if (!user) {
+            return res.status(404).send({ success: false, message: 'User not found' });
+        }
+
+        const upcomingAppointmentsCount = await Appointment.countDocuments({ userId, status: 'pending' });
         const approvedAppointmentsCount = await Appointment.countDocuments({ userId, status: 'approved' });
         const rejectedAppointmentsCount = await Appointment.countDocuments({ userId, status: 'rejected' });
         const aiDiagnosisCount = await Diagnosis.countDocuments({ userId });
+
+        // Earnings/Revenue calculation (Removed)
+        let totalRevenue = 0;
+        let totalEarnings = 0;
 
         res.status(200).send({
             success: true,
             message: 'Dashboard Stats Fetched Successfully',
             data: {
                 upcomingAppointmentsCount: upcomingAppointmentsCount + approvedAppointmentsCount,
-                pastVisitsCount: approvedAppointmentsCount, // Simple logic: approved = visit
-                aiDiagnosisCount: aiDiagnosisCount
+                pastVisitsCount: approvedAppointmentsCount,
+                aiDiagnosisCount: aiDiagnosisCount,
+                totalRevenue: totalRevenue,
+                totalEarnings: totalEarnings
             }
         });
     } catch (error) {
@@ -454,6 +471,7 @@ const updateUserProfileController = async (req, res) => {
         });
     }
 };
+
 
 module.exports = {
     getUserData,

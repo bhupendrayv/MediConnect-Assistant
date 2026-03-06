@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const SiteSettings = require('../models/SiteSettings');
 
+
 const getSiteSettingsController = async (req, res) => {
     try {
         let settings = await SiteSettings.findOne();
@@ -116,5 +117,6 @@ const changeAccountStatusController = async (req, res) => {
         });
     }
 };
+
 
 module.exports = { getAllUsersController, getAllDoctorsController, changeAccountStatusController, getSiteSettingsController, updateSiteSettingsController };

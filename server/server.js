@@ -9,7 +9,8 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(cors({
     origin: [
         'http://localhost:5173',
@@ -37,7 +38,7 @@ const adminRoutes = require('./routes/adminRoutes');
 const doctorRoutes = require('./routes/doctorRoutes');
 
 app.use('/api/v1/user', authRoutes);
-app.use('/api/v1/user', userRoutes); // Note: keeping /user base as per common practice or change if needed. user routes handle /getUserData etc.
+app.use('/api/v1/user', userRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/doctor', doctorRoutes);
 

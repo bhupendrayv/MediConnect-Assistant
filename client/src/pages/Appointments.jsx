@@ -171,9 +171,9 @@ const Appointments = () => {
                         onClick={() => {
                             setDownloadAppointment(record);
                         }}
-                        className="px-4 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg font-black uppercase text-[9px] tracking-widest hover:bg-emerald-600 hover:text-white transition-all border border-emerald-100/50 shadow-sm"
+                        className="px-4 py-1.5 bg-emerald-500 text-white rounded-lg font-black uppercase text-[9px] tracking-widest hover:bg-emerald-600 transition-all border border-emerald-100/50 shadow-sm flex items-center gap-2"
                     >
-                        Download
+                        <FiFileText /> Receipt
                     </button>
                     {record.status === 'pending' && (
                         <>
@@ -182,17 +182,17 @@ const Appointments = () => {
                                     setSelectedAppointment(record);
                                     setIsRescheduleModalOpen(true);
                                 }}
-                                className="text-slate-800 hover:text-slate-600 transition-all"
+                                className="text-slate-800 hover:text-slate-600 transition-all p-2 bg-slate-50 rounded-lg"
                                 title="Reschedule"
                             >
-                                <FiCalendar size={18} />
+                                <FiCalendar size={16} />
                             </button>
                             <button
                                 onClick={() => handleCancel(record._id)}
-                                className="text-red-500 hover:text-red-700 transition-all"
+                                className="text-red-500 hover:text-red-700 transition-all p-2 bg-red-50 rounded-lg"
                                 title="Cancel"
                             >
-                                <FiX size={18} />
+                                <FiX size={16} />
                             </button>
                         </>
                     )}
@@ -240,7 +240,6 @@ const Appointments = () => {
                     />
                 </motion.div>
 
-                {/* Receipt Modal */}
                 {showReceipt && selectedAppointment && (
                     <AppointmentReceipt
                         appointment={selectedAppointment}
@@ -251,14 +250,6 @@ const Appointments = () => {
                     />
                 )}
 
-                {/* Silent Download Component */}
-                {downloadAppointment && (
-                    <AppointmentReceipt
-                        appointment={downloadAppointment}
-                        silent={true}
-                        onClose={() => setDownloadAppointment(null)}
-                    />
-                )}
 
                 {/* Reschedule Modal */}
                 {isRescheduleModalOpen && selectedAppointment && (
@@ -313,6 +304,14 @@ const Appointments = () => {
                             </button>
                         </motion.div>
                     </div>
+                )}
+
+                {/* Receipt Modal */}
+                {downloadAppointment && (
+                    <AppointmentReceipt
+                        appointment={downloadAppointment}
+                        onClose={() => setDownloadAppointment(null)}
+                    />
                 )}
             </div>
         </Layout>
