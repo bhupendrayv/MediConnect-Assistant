@@ -259,7 +259,9 @@ const LandingPage = () => {
     const handleSave = async (data = editForm) => {
         try {
             setSaving(true);
-            const res = await api.post('/user/updateDoctorPublic', data);
+            const res = await api.post('/user/updateDoctorPublic', data, {
+                headers: { Authorization: "Bearer " + token }
+            });
             if (res.data.success) {
                 message.success('Doctor details updated successfully!');
                 setSelectedDoc(res.data.data); // Update modal with new data
@@ -293,6 +295,8 @@ const LandingPage = () => {
                 const res = await api.post('/user/updateDoctorPublic', {
                     _id: doctorId,
                     image: base64Image
+                }, {
+                    headers: { Authorization: "Bearer " + token }
                 });
                 if (res.data.success) {
                     message.success('Profile picture updated!');
@@ -328,12 +332,12 @@ const LandingPage = () => {
         }
 
         // Use gender-specific default images
-        if (doc.gender === 'female') {
+        if (doc.gender && doc.gender.toLowerCase() === 'female') {
             return "/doctors/female-doctor.png";
-        } else if (doc.gender === 'male') {
+        } else if (doc.gender && doc.gender.toLowerCase() === 'male') {
             return "/doctors/male-doctor.png";
         }
-        // Fallback to female doctor image
+        // Fallback to female doctor image if gender not purely specified or missing
         return "/doctors/female-doctor.png";
     };
 
@@ -729,7 +733,7 @@ const LandingPage = () => {
                                             </div>
                                             <div className="flex gap-3 pt-2">
                                                 <button onClick={() => setIsEditMode(false)} className="flex-1 py-3 text-slate-400 font-bold hover:bg-slate-50 rounded-xl transition-all">Cancel</button>
-                                                <button onClick={handleSave} disabled={saving} className="flex-1 py-3 bg-primary text-white font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-emerald-600 transition-all flex items-center justify-center gap-2">
+                                                <button onClick={() => handleSave()} disabled={saving} className="flex-1 py-3 bg-primary text-white font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-emerald-600 transition-all flex items-center justify-center gap-2">
                                                     {saving ? 'Saving...' : <><FiSave /> Save</>}
                                                 </button>
                                             </div>

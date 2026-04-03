@@ -4,7 +4,7 @@ import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { setUser } from '../../redux/features/userSlice';
 import { message } from 'antd';
-import { FiActivity, FiBell, FiCalendar, FiCpu, FiGrid, FiHome, FiLogOut, FiMenu, FiSettings, FiUser, FiUserCheck, FiDroplet, FiCamera } from 'react-icons/fi';
+import { FiActivity, FiBell, FiCalendar, FiCpu, FiGrid, FiHome, FiLogOut, FiMenu, FiSettings, FiUser, FiUserCheck, FiDroplet, FiCamera, FiCreditCard } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const Layout = ({ children }) => {
@@ -20,6 +20,7 @@ const Layout = ({ children }) => {
         { name: 'Appointments', path: '/appointments', icon: <FiCalendar /> },
         { name: 'Symptom AI', path: '/ai-diagnosis', icon: <FiCpu /> },
         { name: 'Blood Bank', path: '/blood-bank', icon: <FiDroplet style={{ color: '#ef4444' }} /> },
+        { name: 'Payments', path: '/payments', icon: <FiCreditCard /> },
     ];
 
     const doctorMenu = [
@@ -28,6 +29,7 @@ const Layout = ({ children }) => {
         { name: 'Blood Bank', path: '/blood-bank', icon: <FiDroplet style={{ color: '#ef4444' }} /> },
         { name: 'My Visits', path: '/doctor-appointments', icon: <FiCalendar /> },
         { name: 'My Profile', path: `/doctor/profile/${user?._id}`, icon: <FiUser /> },
+        { name: 'Payments', path: '/payments', icon: <FiCreditCard /> },
     ];
 
     const menuToBeRendered = user?.isAdmin ? [

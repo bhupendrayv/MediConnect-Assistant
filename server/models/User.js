@@ -85,8 +85,11 @@ userSchema.methods.matchPassword = async function (enteredPassword) {
     return await bcrypt.compare(enteredPassword, this.password);
 };
 
-// Encrypt password using bcrypt
+// Encrypt password using bcrypt and normalize email
 userSchema.pre('save', async function (next) {
+    if (this.isModified('email')) {
+        this.email = this.email.toLowerCase();
+    }
     if (!this.isModified('password')) {
         return next();
     }

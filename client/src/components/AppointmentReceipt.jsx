@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import jsPDF from 'jspdf';
 import { QRCodeCanvas } from 'qrcode.react';
-import { FiActivity, FiCalendar, FiClock, FiUser, FiMail, FiMapPin, FiDownload, FiShare2, FiSend, FiCheckCircle, FiPhone } from 'react-icons/fi';
+import { FiActivity, FiCalendar, FiClock, FiUser, FiMail, FiMapPin, FiDownload, FiShare2, FiSend, FiCheckCircle, FiPhone, FiCreditCard, FiShield } from 'react-icons/fi';
 import { FaWhatsapp, FaTelegram } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 import { message } from 'antd';
@@ -76,32 +76,18 @@ const AppointmentReceipt = ({ appointment, onClose, autoDownload = false, silent
             // Use PNG for maximum compatibility and sharpness
             const imgData = canvas.toDataURL('image/png', 1.0);
 
+            // Calculate dimensions for a perfect single-page fit
+            const pdfWidth = 210; // Standard A4 width in mm
+            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
             const pdf = new jsPDF({
                 orientation: 'portrait',
                 unit: 'mm',
-                format: 'a4',
+                format: [pdfWidth, pdfHeight],
                 compress: true
             });
 
-            const imgProps = pdf.getImageProperties(imgData);
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-            const pageHeight = pdf.internal.pageSize.getHeight();
-
-            let heightLeft = pdfHeight;
-            let position = 0;
-
-            // Page 1
-            pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight, undefined, 'FAST');
-            heightLeft -= pageHeight;
-
-            // Handle multi-page if receipt is longer than A4
-            while (heightLeft >= 0) {
-                position = heightLeft - pdfHeight;
-                pdf.addPage();
-                pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight, undefined, 'FAST');
-                heightLeft -= pageHeight;
-            }
+            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
 
             const fileName = `SmartHealth-Receipt-${appointment.appointmentCode || 'receipt'}.pdf`;
 
@@ -137,7 +123,10 @@ const AppointmentReceipt = ({ appointment, onClose, autoDownload = false, silent
 🩺 Specialization: ${appointment.doctorInfo?.specialization}
 📅 Date: ${appointment.date}
 🕐 Time: ${appointment.time}
-💰 Consultation Fee: ₹${appointment.doctorInfo?.feesPerConsultation}
+💰 Total Amount: ₹${appointment.totalAmount || appointment.doctorInfo?.feesPerConsultation}
+💳 Payment Status: ${appointment.paymentStatus || 'Pending'}
+🆔 Transaction ID: ${appointment.transactionId || 'N/A'}
+${appointment.status === 'approved' ? '✅ Doctor Status: Approved by Doctor' : `📋 Doctor Status: ${appointment.status ? appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1) : 'Pending'}`}
 
 Please present this code at the time of your appointment.
         `.trim();
@@ -187,6 +176,7 @@ Doctor Details:
 Doctor: ${appointment.doctorInfo?.name?.toLowerCase().startsWith('dr') ? appointment.doctorInfo?.name : `Dr. ${appointment.doctorInfo?.name}`}
 Specialization: ${appointment.doctorInfo?.specialization}
 Consultation Fee: ₹${appointment.doctorInfo?.feesPerConsultation}
+Doctor Approval: ${appointment.status === 'approved' ? 'Approved by Doctor' : appointment.status ? appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1) : 'Pending'}
 
 Appointment Details:
 Date: ${appointment.date}
@@ -196,7 +186,7 @@ Medical Issue: ${appointment.userInfo?.problem || 'N/A'}
 
 Important: Please bring this verification code and a valid ID to your appointment. Arrive 10 minutes early for check-in.
 
-For support, contact: support@smarthealth.com
+For support, contact: medi.connectofficial2026@gmail.com
             `);
 
             const mailtoLink = `mailto:${appointment.userInfo?.email}?subject=${subject}&body=${body}`;
@@ -230,11 +220,13 @@ For support, contact: support@smarthealth.com
 
 👨‍⚕️ *Doctor:* ${appointment.doctorInfo?.name?.toLowerCase().startsWith('dr') ? appointment.doctorInfo?.name : `Dr. ${appointment.doctorInfo?.name}`}
 🩺 *Specialization:* ${appointment.doctorInfo?.specialization}
+${appointment.status === 'approved' ? '✅ *Doctor Status:* Approved by Doctor' : `📋 *Doctor Status:* ${appointment.status ? appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1) : 'Pending'}`}
 
 📅 *Date:* ${appointment.date}
 🕐 *Time:* ${appointment.time}
 
-💰 *Consultation Fee:* ₹${appointment.doctorInfo?.feesPerConsultation}
+💰 *Total Amount:* ₹${appointment.totalAmount || appointment.doctorInfo?.feesPerConsultation}
+💳 *Payment Status:* ${appointment.paymentStatus || 'Pending'}
 
 ⚠️ *Important:* Please present this code at the time of your appointment.
             `);
@@ -275,18 +267,18 @@ Please present this code at the time of your appointment.
     };
 
     const receiptContent = (
-        <div ref={receiptRef} className="p-12 bg-white" data-receipt-container="true">
+        <div ref={receiptRef} className="p-8 bg-white" data-receipt-container="true">
             {/* Header */}
-            <div className="text-center mb-12 pb-8 border-b-2 border-slate-100">
+            <div className="text-center mb-8 pb-6 border-b-2 border-slate-100">
                 <div className="flex items-center justify-center gap-3 mb-4">
                     <div className="bg-primary p-3 rounded-xl shadow-lg shadow-primary/20">
                         <FiActivity className="text-white text-3xl" />
                     </div>
-                    <h1 className="text-4xl font-black text-slate-800 tracking-tight">
+                    <h1 className="text-3xl font-black text-slate-800 tracking-tight">
                         Smart<span className="text-primary">Health</span>
                     </h1>
                 </div>
-                <h2 className="text-2xl font-black text-slate-800 tracking-tighter italic uppercase mb-2">
+                <h2 className="text-xl font-black text-slate-800 tracking-tighter italic uppercase mb-2">
                     Appointment Receipt
                 </h2>
                 <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">
@@ -295,13 +287,13 @@ Please present this code at the time of your appointment.
             </div>
 
             {/* Verification Code - Prominent Display */}
-            <div className="bg-gradient-to-br from-emerald-500 to-indigo-600 rounded-3xl p-8 mb-8 text-center relative overflow-hidden">
+            <div className="bg-gradient-to-br from-emerald-500 to-indigo-600 rounded-3xl p-6 mb-6 text-center relative overflow-hidden">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl"></div>
                 <div className="absolute bottom-0 left-0 w-40 h-40 bg-white/10 rounded-full blur-3xl"></div>
                 <p className="text-white/60 font-black uppercase tracking-[0.3em] text-[10px] mb-3 relative z-10">
                     Verification Code
                 </p>
-                <h3 className="text-white text-6xl font-black italic tracking-tighter uppercase mb-3 relative z-10">
+                <h3 className="text-white text-5xl font-black italic tracking-tighter uppercase mb-3 relative z-10">
                     {appointment.appointmentCode}
                 </h3>
                 <div className="flex items-center justify-center gap-2 text-white/80 relative z-10">
@@ -312,17 +304,37 @@ Please present this code at the time of your appointment.
                 </div>
 
                 {/* QR Code Section - Moved to Top */}
-                <div className="flex flex-col items-center justify-center mb-8">
+                <div className="flex flex-col items-center justify-center mb-6">
                     <div className="bg-white p-4 rounded-2xl shadow-lg border border-slate-100">
                         <QRCodeCanvas
                             value={`
-Patient: ${appointment.userInfo?.name}
-Age/Gender: ${appointment.userInfo?.age}/${appointment.userInfo?.gender}
-Doctor: ${appointment.doctorInfo?.name?.toLowerCase().startsWith('dr') ? appointment.doctorInfo?.name : `Dr. ${appointment.doctorInfo?.name}`} (${appointment.doctorInfo?.specialization})
-Date/Time: ${appointment.date} at ${appointment.time}
-Code: ${appointment.appointmentCode}
-Medical Issue: ${appointment.userInfo?.problem || 'N/A'}
-                                `.trim()}
+🏥 SMART HEALTH ASSISTANT - DIGITAL RECEIPT
+-------------------------------------------
+✅ VERIFICATION: ${appointment.appointmentCode}
+📋 STATUS: ${appointment.status?.toUpperCase() || 'PENDING'}
+📅 DATE: ${appointment.date}
+🕐 TIME: ${appointment.time}
+
+👤 PATIENT PROFILE
+Name: ${appointment.userInfo?.name}
+Age/Gender: ${appointment.userInfo?.age}y / ${appointment.userInfo?.gender}
+Mobile: ${appointment.userInfo?.mobileNumber || 'N/A'}
+Problem: ${appointment.userInfo?.problem || 'General Checkup'}
+
+👨‍⚕️ DOCTOR DETAILS
+Doctor: ${appointment.doctorInfo?.name?.toLowerCase().startsWith('dr') ? appointment.doctorInfo?.name : `Dr. ${appointment.doctorInfo?.name}`}
+Specialty: ${appointment.doctorInfo?.specialization}
+
+💰 FINANCIAL SUMMARY
+Total Amount: ₹${appointment.totalAmount || appointment.doctorInfo?.feesPerConsultation}
+Payment: ${appointment.paymentStatus?.toUpperCase() || 'PENDING'}
+Tx ID: ${appointment.transactionId || 'N/A'}
+Services: ${appointment.selectedServices?.map(s => s.name || s).join(', ') || 'Standard Consultation'}
+
+-------------------------------------------
+Verified by SmartHealth System
+Generated on: ${new Date().toLocaleString()}
+                            `.trim()}
                             size={128}
                             level={"H"}
                             includeMargin={true}
@@ -332,8 +344,23 @@ Medical Issue: ${appointment.userInfo?.problem || 'N/A'}
                 </div>
             </div>
 
+            {/* Doctor Approval Status */}
+            <div className="mb-6">
+                <div className={`rounded-2xl p-6 flex items-center gap-4 ${appointment.status === 'approved' ? 'bg-emerald-50 border-2 border-emerald-200' : appointment.status === 'rejected' || appointment.status === 'cancelled' ? 'bg-red-50 border-2 border-red-200' : 'bg-amber-50 border-2 border-amber-200'}`}>
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center ${appointment.status === 'approved' ? 'bg-emerald-500' : appointment.status === 'rejected' || appointment.status === 'cancelled' ? 'bg-red-500' : 'bg-amber-500'}`}>
+                        <FiShield className="text-white text-xl" />
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Doctor Approval Status</p>
+                        <p className={`text-lg font-black uppercase tracking-tight italic ${appointment.status === 'approved' ? 'text-emerald-700' : appointment.status === 'rejected' || appointment.status === 'cancelled' ? 'text-red-700' : 'text-amber-700'}`}>
+                            {appointment.status === 'approved' ? '✅ Approved by Doctor' : appointment.status === 'rejected' ? '❌ Rejected by Doctor' : appointment.status === 'cancelled' ? '🚫 Cancelled' : '⏳ Pending Doctor Approval'}
+                        </p>
+                    </div>
+                </div>
+            </div>
+
             {/* Patient Information */}
-            <div className="mb-8">
+            <div className="mb-6">
                 <h3 className="text-lg font-black text-primary uppercase tracking-widest mb-4 flex items-center gap-2">
                     <FiUser /> Patient Information
                 </h3>
@@ -372,7 +399,7 @@ Medical Issue: ${appointment.userInfo?.problem || 'N/A'}
             </div>
 
             {/* Doctor Information */}
-            <div className="mb-8">
+            <div className="mb-6">
                 <h3 className="text-lg font-black text-primary uppercase tracking-widest mb-4 flex items-center gap-2">
                     <FiActivity /> Doctor Information
                 </h3>
@@ -397,9 +424,30 @@ Medical Issue: ${appointment.userInfo?.problem || 'N/A'}
 
             </div>
 
+            {/* Payment Details */}
+            <div className="mb-6">
+                <h3 className="text-lg font-black text-primary uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <FiCreditCard /> Payment Information
+                </h3>
+                <div className="bg-slate-50 rounded-2xl p-6 space-y-3">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Payment Status</p>
+                            <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full ${appointment.paymentStatus === 'paid' ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
+                                {appointment.paymentStatus || 'Pending'}
+                            </span>
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Transaction ID</p>
+                            <p className="text-sm font-bold text-slate-800 font-mono text-xs">{appointment.transactionId || 'N/A'}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             {/* Service Details */}
             {appointment.selectedServices && appointment.selectedServices.length > 0 && (
-                <div className="mb-8">
+                <div className="mb-6">
                     <h3 className="text-lg font-black text-primary uppercase tracking-widest mb-4 flex items-center gap-2">
                         <FiActivity /> Service Details
                     </h3>
@@ -425,7 +473,7 @@ Medical Issue: ${appointment.userInfo?.problem || 'N/A'}
             )}
 
             {/* Appointment Details */}
-            <div className="mb-8">
+            <div className="mb-6">
                 <h3 className="text-lg font-black text-primary uppercase tracking-widest mb-4 flex items-center gap-2">
                     <FiCalendar /> Appointment Details
                 </h3>
@@ -445,7 +493,7 @@ Medical Issue: ${appointment.userInfo?.problem || 'N/A'}
 
             {/* Medical Information */}
             {appointment.userInfo?.problem && (
-                <div className="mb-8">
+                <div className="mb-6">
                     <h3 className="text-lg font-black text-primary uppercase tracking-widest mb-4 flex items-center gap-2">
                         <FiMail /> Medical Information
                     </h3>
@@ -459,7 +507,7 @@ Medical Issue: ${appointment.userInfo?.problem || 'N/A'}
 
 
             {/* Important Note */}
-            <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-6 mb-8">
+            <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-6 mb-6">
                 <p className="text-xs font-bold text-amber-800 leading-relaxed">
                     <strong className="uppercase tracking-widest">Important:</strong> Please bring this verification code and a valid ID to your appointment. Arrive 10 minutes early for check-in.
                 </p>
@@ -471,7 +519,7 @@ Medical Issue: ${appointment.userInfo?.problem || 'N/A'}
                     © 2024 Smart Health Assistant. All Rights Reserved.
                 </p>
                 <p className="text-slate-300 text-[10px] font-medium mt-1">
-                    For support, contact: support@smarthealth.com
+                    For support, contact: medi.connectofficial2026@gmail.com
                 </p>
             </div>
         </div>
@@ -503,7 +551,7 @@ Medical Issue: ${appointment.userInfo?.problem || 'N/A'}
                 initial={{ opacity: 0, scale: 0.95, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                className="bg-white w-full max-w-2xl rounded-[3rem] overflow-hidden shadow-2xl relative max-h-[90vh] overflow-y-auto"
+                className="bg-white w-full max-w-xl rounded-[2.5rem] overflow-hidden shadow-2xl relative max-h-[90vh] overflow-y-auto"
                 onClick={e => e.stopPropagation()}
             >
                 {/* Close Button */}
@@ -518,7 +566,7 @@ Medical Issue: ${appointment.userInfo?.problem || 'N/A'}
                 {receiptContent}
 
                 {/* Action Area */}
-                <div className="p-10 bg-slate-50 border-t border-slate-100 flex flex-col gap-6">
+                <div className="p-8 bg-slate-50 border-t border-slate-100 flex flex-col gap-5">
                     {/* Primary Download Button */}
                     <button
                         onClick={handleDownload}

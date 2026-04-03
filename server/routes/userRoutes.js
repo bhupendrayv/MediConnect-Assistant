@@ -1,5 +1,6 @@
 const express = require('express');
-const { getUserData, applyDoctorController, getAllNotificationController, bookAppointmentController, bookingAvailabilityController, userAppointmentsController, predictDiseaseController, getDiagnosisHistoryController, checkAppointmentController, getDashboardStatsController, cancelAppointmentController, rescheduleAppointmentController, getPublicDoctorsController, updatePublicDoctorController, updateUserProfileController } = require('../controllers/userController');
+const { getUserData, applyDoctorController, getAllNotificationController, bookAppointmentController, bookingAvailabilityController, userAppointmentsController, predictDiseaseController, getDiagnosisHistoryController, checkAppointmentController, getDashboardStatsController, cancelAppointmentController, rescheduleAppointmentController, getPublicDoctorsController, updatePublicDoctorController, updateUserProfileController, createRazorpayOrderController, verifyPaymentController } = require('../controllers/userController');
+const { createStripeSessionController, verifyStripePaymentController } = require('../controllers/stripeController');
 const { getSiteSettingsController } = require('../controllers/adminController');
 const { requestBloodController, getBloodRequestsController } = require('../controllers/bloodBankController');
 const authMiddleware = require('../middlewares/authMiddleware');
@@ -48,7 +49,7 @@ router.get('/get-blood-requests', authMiddleware, getBloodRequestsController);
 
 // Public Doctor Routes (For Landing Page)
 router.get('/getAllDoctors', getPublicDoctorsController);
-router.post('/updateDoctorPublic', updatePublicDoctorController);
+router.post('/updateDoctorPublic', authMiddleware, updatePublicDoctorController);
 
 // Update User Profile (Image)
 router.post('/update-profile-picture', authMiddleware, updateUserProfileController);
@@ -56,6 +57,14 @@ router.post('/update-profile-picture', authMiddleware, updateUserProfileControll
 
 // Public Site Settings
 router.get('/getPublicSiteSettings', getSiteSettingsController);
+
+// Razorpay Routes
+router.post('/create-razorpay-order', authMiddleware, createRazorpayOrderController);
+router.post('/verify-payment', authMiddleware, verifyPaymentController);
+
+// Stripe Routes
+router.post('/create-stripe-session', authMiddleware, createStripeSessionController);
+router.post('/verify-stripe-payment', authMiddleware, verifyStripePaymentController);
 
 module.exports = router;
 

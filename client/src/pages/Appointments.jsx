@@ -5,16 +5,17 @@ import axios from 'axios';
 import dayjs from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 dayjs.extend(customParseFormat);
-import { FiActivity, FiCalendar, FiClock, FiUser, FiMoreVertical, FiCheck, FiX, FiAlertCircle, FiArrowRight, FiFileText } from 'react-icons/fi';
+import { FiActivity, FiCalendar, FiClock, FiUser, FiMoreVertical, FiCheck, FiX, FiAlertCircle, FiArrowRight, FiFileText, FiCreditCard } from 'react-icons/fi';
 import { motion } from 'framer-motion';
-import { message, Table, Tag, Space } from 'antd';
+import { message, Table, Tag, Space, Button } from 'antd';
 import AppointmentReceipt from '../components/AppointmentReceipt';
+import { useSelector, useDispatch } from 'react-redux';
+import { showLoading, hideLoading } from '../redux/features/alertSlice';
 
 const Appointments = () => {
     const [appointments, setAppointments] = useState([]);
     const [selectedAppointment, setSelectedAppointment] = useState(null);
     const [downloadAppointment, setDownloadAppointment] = useState(null);
-    const [showReceipt, setShowReceipt] = useState(false);
 
     // Reschedule State
     const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
@@ -23,6 +24,39 @@ const Appointments = () => {
     const [rescheduleLoading, setRescheduleLoading] = useState(false);
 
     const navigate = useNavigate();
+    const dispatch = useDispatch();
+    const { user } = useSelector(state => state.user);
+
+    const handlePayment = async (record) => {
+        try {
+            dispatch(showLoading());
+            // 1. Create Stripe Checkout Session
+            const sessionRes = await axios.post('/api/v1/user/create-stripe-session',
+                {
+                    amount: record.totalAmount || record.doctorInfo.feesPerConsultation,
+                    appointmentId: record._id,
+                    doctorName: record.doctorInfo.name
+                },
+                {
+                    headers: {
+                        Authorization: "Bearer " + localStorage.getItem('token'),
+                    },
+                });
+
+            dispatch(hideLoading());
+            if (sessionRes.data.success) {
+                // 2. Redirect to Stripe Checkout
+                window.location.href = sessionRes.data.url;
+            } else {
+                message.error(sessionRes.data.message || 'Failed to create payment session.');
+            }
+
+        } catch (error) {
+            dispatch(hideLoading());
+            console.error('Payment error:', error);
+            message.error('Failed to initiate payment.');
+        }
+    };
 
     const getAppointments = async () => {
         try {
@@ -171,10 +205,18 @@ const Appointments = () => {
                         onClick={() => {
                             setDownloadAppointment(record);
                         }}
-                        className="px-4 py-1.5 bg-emerald-500 text-white rounded-lg font-black uppercase text-[9px] tracking-widest hover:bg-emerald-600 transition-all border border-emerald-100/50 shadow-sm flex items-center gap-2"
+                        className="px-4 py-1.5 bg-slate-800 text-white rounded-lg font-black uppercase text-[9px] tracking-widest hover:bg-slate-900 transition-all shadow-sm flex items-center gap-2"
                     >
                         <FiFileText /> Receipt
                     </button>
+                    {record.paymentStatus !== 'paid' && record.status !== 'cancelled' && (
+                        <button
+                            onClick={() => handlePayment(record)}
+                            className="px-4 py-1.5 bg-primary text-white rounded-lg font-black uppercase text-[9px] tracking-widest hover:bg-emerald-600 transition-all shadow-lg shadow-primary/20 flex items-center gap-2"
+                        >
+                            <FiCreditCard /> Pay Now
+                        </button>
+                    )}
                     {record.status === 'pending' && (
                         <>
                             <button
@@ -239,17 +281,6 @@ const Appointments = () => {
                         }}
                     />
                 </motion.div>
-
-                {showReceipt && selectedAppointment && (
-                    <AppointmentReceipt
-                        appointment={selectedAppointment}
-                        onClose={() => {
-                            setShowReceipt(false);
-                            setSelectedAppointment(null);
-                        }}
-                    />
-                )}
-
 
                 {/* Reschedule Modal */}
                 {isRescheduleModalOpen && selectedAppointment && (

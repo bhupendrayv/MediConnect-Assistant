@@ -53,6 +53,27 @@ const appointmentSchema = new mongoose.Schema({
     totalAmount: {
         type: Number,
         default: 0
+    },
+    razorpay_order_id: {
+        type: String,
+    },
+    razorpay_payment_id: {
+        type: String,
+    },
+    razorpay_signature: {
+        type: String,
+    },
+    stripeSessionId: {
+        type: String,
+    },
+    transactionId: {
+        type: String,
+        unique: true,
+    },
+    paymentStatus: {
+        type: String,
+        enum: ['pending', 'paid', 'failed'],
+        default: 'pending'
     }
 }, { timestamps: true });
 

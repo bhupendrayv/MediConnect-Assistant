@@ -16,6 +16,7 @@ import DoctorAppointments from './pages/doctor/DoctorAppointments';
 import AIHelper from './pages/AIHelper';
 import VerifyAppointment from './pages/VerifyAppointment';
 import BloodBank from './pages/BloodBank';
+import Payments from './pages/Payments';
 import { FiActivity } from 'react-icons/fi';
 
 import LandingPage from './pages/LandingPage';
@@ -111,6 +112,11 @@ function App() {
                 <Route path="/verify-appointment" element={
                     <ProtectedRoute>
                         <VerifyAppointment />
+                    </ProtectedRoute>
+                } />
+                <Route path="/payments" element={
+                    <ProtectedRoute>
+                        <Payments />
                     </ProtectedRoute>
                 } />
                 <Route path="/login" element={

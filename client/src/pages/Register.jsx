@@ -27,7 +27,13 @@ const Register = () => {
             }
         } catch (error) {
             dispatch(hideLoading());
-            message.error('Registration failed. Please try again.');
+            console.error('Registration Caught Error:', error);
+            if (error.response) {
+                console.error('Error Response:', error.response.data);
+                console.error('Error Status:', error.response.status);
+            }
+            const errorMsg = error.response?.data?.message || 'Registration failed. Please try again.';
+            message.error(errorMsg);
         }
     };
 

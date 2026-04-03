@@ -19,9 +19,10 @@ if (!baseURL) {
     }
 }
 
-// Ensure local development always uses local backend even if some prod env var is leaking
-if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-    baseURL = 'http://localhost:8082/api/v1';
+// Ensure local development always uses relative paths (Vite proxy)
+// This handles localhost, 127.0.0.1, and local network IPs (e.g. 10.x.x.x)
+if (!isProduction) {
+    baseURL = '/api/v1';
 }
 
 // baseURL is set above based on environment

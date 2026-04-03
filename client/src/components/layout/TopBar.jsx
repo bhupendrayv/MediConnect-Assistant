@@ -21,7 +21,7 @@ const TopBar = () => {
                 setSettings({
                     emergencyContact: '+91 1234567890',
                     address: 'Health St, Medical District',
-                    email: 'support@smarthealth.com'
+                    email: 'medi.connectofficial2026@gmail.com'
                 });
             }
         };

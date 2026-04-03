@@ -5,7 +5,7 @@ import axios from 'axios';
 import { DatePicker, message, TimePicker } from 'antd';
 import { useDispatch, useSelector } from 'react-redux';
 import { showLoading, hideLoading } from '../redux/features/alertSlice';
-import { FiArrowRight, FiCheckCircle, FiClock, FiCreditCard, FiStar, FiCalendar, FiUser, FiMapPin, FiActivity } from 'react-icons/fi';
+import { FiArrowRight, FiCheckCircle, FiClock, FiCreditCard, FiStar, FiCalendar, FiUser, FiMapPin, FiActivity, FiEdit2 } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import AppointmentReceipt from '../components/AppointmentReceipt';
 import { services } from '../data/services';
@@ -107,6 +107,8 @@ const BookingPage = () => {
             }
 
             dispatch(showLoading());
+
+            // 1. Create Appointment (pending status)
             const res = await axios.post('/api/v1/user/book-appointment',
                 {
                     doctorId: params.doctorId,
@@ -127,7 +129,6 @@ const BookingPage = () => {
                     },
                     date,
                     time,
-                    // Pass selected services with price snapshot
                     selectedServices: selectedServices.map(s => ({
                         name: s.name || 'Service',
                         price: s.price || 0
@@ -139,21 +140,38 @@ const BookingPage = () => {
                     },
                 });
 
-            if (res.data.success) {
-                const appointment = res.data.data;
-                setAppointmentCode(appointment.appointmentCode);
-                setBookedAppointment({ ...appointment });
-                setStep(5); // Success step
-                message.success('Appointment booked successfully!');
+            if (!res.data.success) {
                 dispatch(hideLoading());
-            } else {
-                dispatch(hideLoading());
-                message.error(res.data.message || 'Booking failed. Please try again.');
+                return message.error(res.data.message || 'Booking initiation failed.');
             }
+
+            const appointmentId = res.data.data._id;
+            const totalAmount = res.data.data.totalAmount;
+
+            // 2. Create Stripe Checkout Session
+            const sessionRes = await axios.post('/api/v1/user/create-stripe-session',
+                {
+                    amount: totalAmount,
+                    appointmentId: appointmentId,
+                    doctorName: doctor.name
+                },
+                {
+                    headers: {
+                        Authorization: "Bearer " + localStorage.getItem('token'),
+                    },
+                });
+
+            dispatch(hideLoading());
+            if (sessionRes.data.success) {
+                // 3. Redirect to Stripe Checkout
+                window.location.href = sessionRes.data.url;
+            } else {
+                message.error(sessionRes.data.message || 'Failed to create payment session. Please try again.');
+            }
+
         } catch (error) {
             dispatch(hideLoading());
             console.error('Booking error:', error);
-            console.error('Error response:', error.response?.data);
             const errorMessage = error.response?.data?.message || 'Booking failed. Please try again.';
             message.error(errorMessage);
         }
@@ -181,8 +199,8 @@ const BookingPage = () => {
         }
 
         // Use gender-specific default images
-        if (doc.gender === 'female') return "/doctors/female-doctor.png";
-        if (doc.gender === 'male') return "/doctors/male-doctor.png";
+        if (doc.gender && doc.gender.toLowerCase() === 'female') return "/doctors/female-doctor.png";
+        if (doc.gender && doc.gender.toLowerCase() === 'male') return "/doctors/male-doctor.png";
         return "/doctors/female-doctor.png";
     };
 
@@ -330,12 +348,12 @@ const BookingPage = () => {
                         <div className="bg-white rounded-[3rem] p-10 md:p-16 border border-slate-100 shadow-xl shadow-slate-200/50 min-h-[600px] flex flex-col">
                             {/* Progress bar */}
                             <div className="flex items-center gap-4 mb-16 overflow-x-auto pb-4">
-                                {[1, 2, 3, 4, 5].map(i => (
+                                {[1, 2, 3, 4, 5, 6].map(i => (
                                     <React.Fragment key={i}>
                                         <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm italic flex-shrink-0 transition-all ${step >= i ? 'bg-primary text-white shadow-lg shadow-emerald-200 scale-110' : 'bg-slate-100 text-slate-300'}`}>
                                             {step > i ? <FiCheckCircle /> : `0${i}`}
                                         </div>
-                                        {i < 5 && <div className={`flex-1 h-1 rounded-full min-w-[20px] ${step > i ? 'bg-primary' : 'bg-slate-100'}`}></div>}
+                                        {i < 6 && <div className={`flex-1 h-1 rounded-full min-w-[20px] ${step > i ? 'bg-primary' : 'bg-slate-100'}`}></div>}
                                     </React.Fragment>
                                 ))}
                             </div>
@@ -509,15 +527,73 @@ const BookingPage = () => {
                                             </div>
                                             <div className="flex gap-4 pt-4">
                                                 <button onClick={() => setStep(3)} className="h-16 px-8 border-2 border-slate-100 rounded-2xl font-black uppercase text-xs tracking-widest italic text-slate-400 hover:border-slate-200 transition-all">Back</button>
-                                                <button onClick={handleBooking} className="flex-1 h-16 bg-primary text-white rounded-2xl font-black uppercase tracking-widest italic flex items-center justify-center gap-4 hover:bg-emerald-600 shadow-xl shadow-primary/20 transition-all">
-                                                    Confirm Booking <FiCheckCircle />
+                                                <button onClick={() => setStep(5)} className="flex-1 h-16 bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-widest italic flex items-center justify-center gap-4 hover:bg-emerald-700 shadow-xl shadow-emerald-600/20 transition-all">
+                                                    Next: Payment <FiArrowRight />
                                                 </button>
                                             </div>
                                         </motion.div>
                                     )}
 
-                                    {/* Step 5: Success */}
+                                    {/* Step 5: Payment Options */}
                                     {step === 5 && (
+                                        <motion.div
+                                            key="step5"
+                                            initial={{ opacity: 0, y: 10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            exit={{ opacity: 0, y: -10 }}
+                                            className="space-y-8"
+                                        >
+                                            <div>
+                                                <h3 className="text-3xl font-black text-slate-800 tracking-tighter italic uppercase mb-2">Step 05: Payment.</h3>
+                                                <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Select your preferred payment method</p>
+                                            </div>
+
+                                            <div className="bg-slate-50 rounded-[2.5rem] p-8 border border-slate-100">
+                                                <div className="flex justify-between items-center mb-6">
+                                                    <span className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Consultation Fee</span>
+                                                    <span className="text-slate-800 font-black text-xl italic">₹{doctor?.feesPerConsultation || 0}</span>
+                                                </div>
+                                                <div className="space-y-4 mb-6">
+                                                    {selectedServices.map((s, idx) => (
+                                                        <div key={idx} className="flex justify-between items-center">
+                                                            <span className="text-slate-500 font-medium text-sm">{s.name}</span>
+                                                            <span className="text-slate-800 font-bold text-sm">₹{s.price}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                <div className="h-px bg-slate-200 mb-6"></div>
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-slate-800 font-black uppercase tracking-widest text-xs">Total Amount</span>
+                                                    <span className="text-primary font-black text-3xl italic">₹{calculateTotal()}</span>
+                                                </div>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 gap-4">
+                                                <div className="p-6 bg-white border-2 border-primary rounded-2xl flex items-center justify-between group cursor-pointer hover:bg-emerald-50 transition-all">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary text-2xl">
+                                                            <FiCreditCard />
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-black text-slate-800 uppercase tracking-tight italic">Stripe Secure Checkout</p>
+                                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Cards, UPI, NetBanking, Wallets</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="w-6 h-6 rounded-full border-4 border-primary bg-primary shadow-lg shadow-primary/20"></div>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex gap-4 pt-4">
+                                                <button onClick={() => setStep(4)} className="h-16 px-8 border-2 border-slate-100 rounded-2xl font-black uppercase text-xs tracking-widest italic text-slate-400 hover:border-slate-200 transition-all">Back</button>
+                                                <button onClick={handleBooking} className="flex-1 h-16 bg-primary text-white rounded-2xl font-black uppercase tracking-widest italic flex items-center justify-center gap-4 hover:bg-emerald-600 shadow-xl shadow-primary/20 transition-all">
+                                                    Pay & Confirm Booking <FiCheckCircle />
+                                                </button>
+                                            </div>
+                                        </motion.div>
+                                    )}
+
+                                    {/* Step 6: Success */}
+                                    {step === 6 && (
                                         <motion.div
                                             key="step5"
                                             initial={{ opacity: 0, scale: 0.9 }}

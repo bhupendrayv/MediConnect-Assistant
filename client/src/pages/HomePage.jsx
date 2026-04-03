@@ -100,8 +100,8 @@ const HomePage = () => {
         }
 
         // Use gender-specific default images
-        if (doc.gender === 'female') return "/doctors/female-doctor.png";
-        if (doc.gender === 'male') return "/doctors/male-doctor.png";
+        if (doc.gender && doc.gender.toLowerCase() === 'female') return "/doctors/female-doctor.png";
+        if (doc.gender && doc.gender.toLowerCase() === 'male') return "/doctors/male-doctor.png";
         return "/doctors/female-doctor.png";
     };
 

@@ -84,7 +84,7 @@ const SiteSettings = () => {
                                 name="email"
                                 rules={[{ required: true, message: 'Please enter support email' }, { type: 'email', message: 'Please enter a valid email' }]}
                             >
-                                <Input prefix={<span className="text-slate-400">✉️</span>} placeholder="support@smarthealth.com" size="large" />
+                                <Input prefix={<span className="text-slate-400">✉️</span>} placeholder="medi.connectofficial2026@gmail.com" size="large" />
                             </Form.Item>
 
                             <Form.Item

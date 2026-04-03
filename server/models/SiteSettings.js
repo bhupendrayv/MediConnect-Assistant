@@ -11,7 +11,7 @@ const siteSettingsSchema = new mongoose.Schema({
     },
     email: {
         type: String,
-        default: 'support@smarthealth.com'
+        default: 'medi.connectofficial2026@gmail.com'
     }
 }, { timestamps: true });
 

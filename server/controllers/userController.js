@@ -1,6 +1,8 @@
 const User = require('../models/User');
 const Appointment = require('../models/Appointment');
 const Diagnosis = require('../models/Diagnosis');
+const Razorpay = require('razorpay');
+const crypto = require('crypto');
 
 const getUserData = async (req, res) => {
     try {
@@ -128,6 +130,10 @@ const bookAppointmentController = async (req, res) => {
         // Generate unique appointment code (e.g., HH-ABCD)
         const appointmentCode = `HH-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
 
+        // Generate formatted transaction ID (e.g., T1234567890)
+        const randomDigits = Array.from({ length: 10 }, () => Math.floor(Math.random() * 10)).join('');
+        const transactionId = `T${randomDigits}`;
+
         // Calculate total amount
         const servicesTotal = (selectedServices || []).reduce((acc, curr) => acc + (curr.price || 0), 0);
         const totalAmount = (doctorInfo.feesPerConsultation || 0) + servicesTotal;
@@ -140,6 +146,7 @@ const bookAppointmentController = async (req, res) => {
             date,
             time,
             appointmentCode,
+            transactionId,
             selectedServices: selectedServices || [],
             status: 'pending',
             totalAmount
@@ -472,6 +479,92 @@ const updateUserProfileController = async (req, res) => {
     }
 };
 
+// Razorpay Controllers
+const createRazorpayOrderController = async (req, res) => {
+    try {
+        const { amount, appointmentId } = req.body;
+
+        if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+            return res.status(500).send({
+                success: false,
+                message: 'Razorpay keys are missing in environment variables'
+            });
+        }
+
+        const razorpay = new Razorpay({
+            key_id: process.env.RAZORPAY_KEY_ID,
+            key_secret: process.env.RAZORPAY_KEY_SECRET,
+        });
+
+        const options = {
+            amount: amount * 100, // amount in the smallest currency unit (paise)
+            currency: "INR",
+            receipt: `receipt_${appointmentId}`,
+        };
+
+        const order = await razorpay.orders.create(options);
+
+        // Update appointment with order ID
+        await Appointment.findByIdAndUpdate(appointmentId, { razorpay_order_id: order.id });
+
+        res.status(200).send({
+            success: true,
+            order
+        });
+    } catch (error) {
+        console.error('Error creating Razorpay order:', error);
+        res.status(500).send({
+            success: false,
+            message: 'Error in creating Razorpay order',
+            error
+        });
+    }
+};
+
+const verifyPaymentController = async (req, res) => {
+    try {
+        const {
+            razorpay_order_id,
+            razorpay_payment_id,
+            razorpay_signature,
+            appointmentId
+        } = req.body;
+
+        const sign = razorpay_order_id + "|" + razorpay_payment_id;
+        const expectedSign = crypto
+            .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+            .update(sign.toString())
+            .digest("hex");
+
+        if (razorpay_signature === expectedSign) {
+            // Payment verified
+            await Appointment.findByIdAndUpdate(appointmentId, {
+                razorpay_payment_id,
+                razorpay_signature,
+                paymentStatus: 'paid',
+                status: 'approved' // Automatically approve if paid? Or keep as pending for doctor approval.
+                // Based on user prompt "Booking Confirmed", I'll set it to approved/booked.
+            });
+
+            return res.status(200).send({
+                success: true,
+                message: "Payment verified successfully"
+            });
+        } else {
+            return res.status(400).send({
+                success: false,
+                message: "Invalid signature sent!"
+            });
+        }
+    } catch (error) {
+        console.error('Error verifying payment:', error);
+        res.status(500).send({
+            success: false,
+            message: "Internal Server Error during verification",
+            error
+        });
+    }
+};
 
 module.exports = {
     getUserData,
@@ -488,7 +581,9 @@ module.exports = {
     rescheduleAppointmentController,
     getPublicDoctorsController,
     updatePublicDoctorController,
-    updateUserProfileController
+    updateUserProfileController,
+    createRazorpayOrderController,
+    verifyPaymentController
 };
 
 

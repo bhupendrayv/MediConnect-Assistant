@@ -25,7 +25,13 @@ const Login = () => {
             }
         } catch (error) {
             dispatch(hideLoading());
-            message.error('Invalid credentials');
+            console.error('Login Caught Error:', error);
+            if (error.response) {
+                console.error('Error Response:', error.response.data);
+                console.error('Error Status:', error.response.status);
+            }
+            const errorMsg = error.response?.data?.message || 'Invalid credentials or server error. Please try again.';
+            message.error(errorMsg);
         }
     };
 
