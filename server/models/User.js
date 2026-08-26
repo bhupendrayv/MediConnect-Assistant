@@ -5,11 +5,14 @@ const userSchema = new mongoose.Schema({
     name: {
         type: String,
         required: true,
+        trim: true,
     },
     email: {
         type: String,
         required: true,
         unique: true,
+        lowercase: true,
+        trim: true,
     },
     password: {
         type: String,
@@ -19,6 +22,14 @@ const userSchema = new mongoose.Schema({
         type: String,
         enum: ['patient', 'doctor', 'admin'],
         default: 'patient',
+    },
+    isAdmin: {
+        type: Boolean,
+        default: false,
+    },
+    phone: {
+        type: String,
+        default: '',
     },
     address: {
         type: String,
@@ -42,7 +53,6 @@ const userSchema = new mongoose.Schema({
     feesPerConsultation: {
         type: Number,
     },
-    // Using simple array for now, can be complex logic later
     timings: {
         type: Object, // e.g., { start: "09:00", end: "17:00" }
     },
@@ -77,18 +87,23 @@ const userSchema = new mongoose.Schema({
     },
 }, { timestamps: true });
 
-// Disable buffering to catch connection errors immediately
-userSchema.set('bufferCommands', false);
 
 // Match user entered password to hashed password in database
 userSchema.methods.matchPassword = async function (enteredPassword) {
+    if (!enteredPassword || !this.password) return false;
     return await bcrypt.compare(enteredPassword, this.password);
 };
 
-// Encrypt password using bcrypt and normalize email
+// Encrypt password using bcrypt and normalize email and roles
 userSchema.pre('save', async function (next) {
-    if (this.isModified('email')) {
-        this.email = this.email.toLowerCase();
+    if (this.isModified('email') && this.email) {
+        this.email = this.email.toLowerCase().trim();
+    }
+    if (this.role === 'admin') {
+        this.isAdmin = true;
+    }
+    if (this.role === 'doctor') {
+        this.isDoctor = true;
     }
     if (!this.isModified('password')) {
         return next();

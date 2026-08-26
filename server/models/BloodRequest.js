@@ -3,11 +3,13 @@ const mongoose = require('mongoose');
 const bloodRequestSchema = new mongoose.Schema({
     userId: {
         type: String,
-        required: true
+        required: true,
+        index: true,
     },
     patientName: {
         type: String,
-        required: true
+        required: true,
+        trim: true,
     },
     bloodGroup: {
         type: String,
@@ -17,15 +19,18 @@ const bloodRequestSchema = new mongoose.Schema({
     units: {
         type: Number,
         required: true,
-        default: 1
+        default: 1,
+        min: 1
     },
     hospitalName: {
         type: String,
-        required: true
+        required: true,
+        trim: true,
     },
     address: {
         type: String,
-        required: true
+        required: true,
+        trim: true,
     },
     neededBy: {
         type: Date,
@@ -38,13 +43,15 @@ const bloodRequestSchema = new mongoose.Schema({
     },
     contactNumber: {
         type: String,
-        required: true
+        required: true,
+        trim: true,
     },
     reason: {
-        type: String
+        type: String,
+        default: ''
     }
 }, { timestamps: true });
 
-const bloodRequestModel = mongoose.model('bloodRequests', bloodRequestSchema);
+const BloodRequest = mongoose.model('BloodRequest', bloodRequestSchema);
 
-module.exports = bloodRequestModel;
+module.exports = BloodRequest;

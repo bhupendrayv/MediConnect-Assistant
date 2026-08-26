@@ -3,26 +3,31 @@ const mongoose = require('mongoose');
 const diagnosisSchema = new mongoose.Schema({
     userId: {
         type: String,
-        required: true
+        required: true,
+        index: true,
     },
     symptoms: {
         type: String,
-        required: true
+        required: true,
     },
     disease: {
         type: String,
-        required: true
+        required: true,
     },
     severity: {
         type: String,
-        required: true
+        required: true,
     },
     specialist: {
         type: String,
-        required: true
+        required: true,
+    },
+    solution: {
+        type: String,
+        default: '',
     }
 }, { timestamps: true });
 
-const diagnosisModel = mongoose.model('diagnoses', diagnosisSchema);
+const Diagnosis = mongoose.model('Diagnosis', diagnosisSchema);
 
-module.exports = diagnosisModel;
+module.exports = Diagnosis;

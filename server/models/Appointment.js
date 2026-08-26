@@ -28,7 +28,9 @@ const appointmentSchema = new mongoose.Schema({
     appointmentCode: {
         type: String,
         required: true,
-        unique: true
+        unique: true,
+        uppercase: true,
+        trim: true
     },
     date: {
         type: String,
@@ -40,11 +42,12 @@ const appointmentSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        required: true,
+        enum: ['pending', 'approved', 'rejected', 'cancelled', 'completed'],
         default: 'pending',
     },
     symptoms: {
         type: String,
+        default: ''
     },
     selectedServices: [{
         name: { type: String, required: true },
@@ -69,6 +72,7 @@ const appointmentSchema = new mongoose.Schema({
     transactionId: {
         type: String,
         unique: true,
+        sparse: true,
     },
     paymentStatus: {
         type: String,
