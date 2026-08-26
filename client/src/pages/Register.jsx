@@ -20,20 +20,23 @@ const Register = () => {
             const res = await api.post('/user/register', finalValues);
             dispatch(hideLoading());
             if (res.data.success) {
-                message.success('Account Created Successfully!');
+                message.success('Account Created Successfully! Please log in.');
                 navigate('/login');
             } else {
-                message.error(res.data.message);
+                // Show the exact server message (e.g., "email already exists", "password too short")
+                message.error(res.data.message || 'Registration failed. Please check your details.');
             }
         } catch (error) {
             dispatch(hideLoading());
-            console.error('Registration Caught Error:', error);
-            if (error.response) {
-                console.error('Error Response:', error.response.data);
-                console.error('Error Status:', error.response.status);
+            console.error('Registration error:', error);
+            const serverMsg = error.response?.data?.message;
+            if (serverMsg) {
+                message.error(serverMsg);
+            } else if (error.code === 'ERR_NETWORK' || !error.response) {
+                message.error('Cannot connect to server. Make sure the backend is running on port 8082.');
+            } else {
+                message.error(`Server error (${error.response?.status}): Please try again.`);
             }
-            const errorMsg = error.response?.data?.message || 'Registration failed. Please try again.';
-            message.error(errorMsg);
         }
     };
 

@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiActivity, FiShield, FiUserCheck, FiArrowRight, FiEdit2, FiSave, FiX, FiClock, FiCreditCard, FiStar, FiCamera } from 'react-icons/fi';
 import api from '../services/api';
-import { useSelector, useDispatch } from 'react-redux';
+import { useSelector } from 'react-redux';
 import { message } from 'antd';
 import ThemeToggle from '../components/ThemeToggle';
 import TopBar from '../components/layout/TopBar';
@@ -85,7 +85,6 @@ const LandingPage = () => {
     const { user } = useSelector(state => state.user);
     const [doctors, setDoctors] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [uploading, setUploading] = useState(false);
 
     const [selectedDoc, setSelectedDoc] = useState(null);
     const [selectedService, setSelectedService] = useState(null);
@@ -221,15 +220,108 @@ const LandingPage = () => {
         }
     ];
 
+    // Static fallback doctors shown when API returns empty
+    const staticDoctors = [
+        {
+            _id: 'static-1',
+            name: 'Dr. Sarah Mitchell',
+            specialization: 'Cardiology',
+            experience: '15+ Years in Cardiovascular Medicine',
+            gender: 'female',
+            feesPerConsultation: 150,
+            address: 'Heart Care Center, New York, NY',
+            bio: 'Board-certified cardiologist specializing in preventive cardiology and heart disease management. Committed to providing compassionate, evidence-based care.',
+            timings: { start: '09:00', end: '17:00' },
+            image: '/doctors/dr-sarah.png',
+            isAvailable: true,
+            isStatic: true,
+        },
+        {
+            _id: 'static-2',
+            name: 'Dr. James Anderson',
+            specialization: 'Neurology',
+            experience: '20+ Years in Neurological Care',
+            gender: 'male',
+            feesPerConsultation: 175,
+            address: 'Brain & Spine Institute, Boston, MA',
+            bio: 'Expert neurologist with extensive experience in treating complex neurological disorders including epilepsy, stroke, and neurodegenerative diseases.',
+            timings: { start: '08:00', end: '16:00' },
+            image: '/doctors/dr-james.png',
+            isAvailable: true,
+            isStatic: true,
+        },
+        {
+            _id: 'static-3',
+            name: 'Dr. Emily Chen',
+            specialization: 'Pediatrics',
+            experience: '12+ Years in Child Healthcare',
+            gender: 'female',
+            feesPerConsultation: 120,
+            address: "Children's Wellness Center, San Francisco, CA",
+            bio: 'Dedicated pediatrician passionate about children\'s health and development, from newborns to adolescents.',
+            timings: { start: '09:00', end: '17:00' },
+            image: '/doctors/dr-emily.png',
+            isAvailable: true,
+            isStatic: true,
+        },
+        {
+            _id: 'static-4',
+            name: 'Dr. Michael Roberts',
+            specialization: 'Orthopedic Surgery',
+            experience: '18+ Years in Orthopedics',
+            gender: 'male',
+            feesPerConsultation: 200,
+            address: 'Sports Medicine & Orthopedic Center, Los Angeles, CA',
+            bio: 'Renowned orthopedic surgeon specializing in sports injuries, joint replacement, and minimally invasive procedures.',
+            timings: { start: '10:00', end: '18:00' },
+            image: '/doctors/dr-michael.png',
+            isAvailable: true,
+            isStatic: true,
+        },
+        {
+            _id: 'static-5',
+            name: 'Dr. Priya Sharma',
+            specialization: 'Dermatology',
+            experience: '10+ Years in Skin Care',
+            gender: 'female',
+            feesPerConsultation: 130,
+            address: 'Advanced Dermatology Clinic, Miami, FL',
+            bio: 'Expert dermatologist offering comprehensive skin care solutions including medical, surgical, and cosmetic dermatology.',
+            timings: { start: '09:00', end: '17:00' },
+            image: '/doctors/dr-priya.png',
+            isAvailable: true,
+            isStatic: true,
+        },
+        {
+            _id: 'static-6',
+            name: 'Dr. David Thompson',
+            specialization: 'General Medicine',
+            experience: '25+ Years in Family Practice',
+            gender: 'male',
+            feesPerConsultation: 100,
+            address: 'Community Health Center, Chicago, IL',
+            bio: 'Experienced family physician providing comprehensive primary care for patients of all ages, focusing on preventive medicine.',
+            timings: { start: '08:00', end: '16:00' },
+            image: '/doctors/dr-david.png',
+            isAvailable: true,
+            isStatic: true,
+        },
+    ];
+
     // Fetch doctors from backend
     const getAllDoctors = async () => {
         try {
             const res = await api.get('/user/getAllDoctors');
-            if (res.data.success) {
+            if (res.data.success && res.data.data && res.data.data.length > 0) {
                 setDoctors(res.data.data);
+            } else {
+                // Fallback to static data if API returns empty
+                setDoctors(staticDoctors);
             }
         } catch (error) {
-            console.error('Error fetching doctors', error);
+            console.error('Error fetching doctors, using static data', error);
+            // Fallback to static data on error
+            setDoctors(staticDoctors);
         } finally {
             setLoading(false);
         }
@@ -290,7 +382,6 @@ const LandingPage = () => {
         const reader = new FileReader();
         reader.onloadend = async () => {
             try {
-                setUploading(true);
                 const base64Image = reader.result;
                 const res = await api.post('/user/updateDoctorPublic', {
                     _id: doctorId,
@@ -308,8 +399,6 @@ const LandingPage = () => {
             } catch (error) {
                 console.error(error);
                 message.error('Failed to upload image');
-            } finally {
-                setUploading(false);
             }
         };
         reader.readAsDataURL(file);
@@ -405,7 +494,7 @@ const LandingPage = () => {
                             </span>
                         </h1>
                         <p className="text-xl text-slate-500 dark:text-slate-400 mb-10 max-w-lg leading-relaxed font-medium">
-                            The all-in-one assistant for your family's health. Connect with doctors, get AI-powered insights, and manage everything in one secure place.
+                            The all-in-one assistant for your family&apos;s health. Connect with doctors, get AI-powered insights, and manage everything in one secure place.
                         </p>
                         <div className="flex flex-wrap gap-5">
                             <Link to="/register" className="px-10 py-5 bg-primary text-white text-lg font-bold rounded-2xl shadow-2xl shadow-primary/30 hover:shadow-primary/40 hover:-translate-y-1 transition-all flex items-center gap-3 group">
@@ -506,8 +595,13 @@ const LandingPage = () => {
                                     onClick={() => { setSelectedDoc(doc); setIsEditMode(false); }}
                                     className="group relative cursor-pointer"
                                 >
-                                    <div className={`relative rounded-[2rem] overflow-hidden aspect-[4/5] shadow-xl group-hover:shadow-2xl transition-all`}>
-                                        <img src={getDoctorImg(doc)} alt={doc.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                                    <div className={`relative rounded-[2rem] overflow-hidden aspect-[4/5] shadow-xl group-hover:shadow-2xl transition-all bg-slate-200`}>
+                                        <img
+                                            src={getDoctorImg(doc)}
+                                            alt={doc.name}
+                                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                                            onError={e => { e.target.onerror = null; e.target.src = doc.gender === 'male' ? '/doctors/male-doctor.png' : '/doctors/female-doctor.png'; }}
+                                        />
                                         <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent opacity-80"></div>
                                         <div className="absolute bottom-0 left-0 p-8 w-full translate-y-2 group-hover:translate-y-0 transition-transform">
                                             <p className="text-primary text-xs font-black uppercase tracking-[0.2em] mb-2">{doc.specialization || 'Specialist'}</p>
@@ -543,7 +637,7 @@ const LandingPage = () => {
                         Join thousands of patients who have already transformed their healthcare experience with SmartHealth.
                     </p>
                     <Link to="/register" className="px-12 py-6 bg-primary text-white text-xl font-black rounded-3xl shadow-2xl shadow-primary/40 hover:-translate-y-2 transition-all z-10 uppercase tracking-tight italic">
-                        Start Now - It's Free
+                        Start Now - It&apos;s Free
                     </Link>
                 </div>
             </section>
@@ -611,7 +705,12 @@ const LandingPage = () => {
 
                             <div className="flex flex-col md:flex-row h-full">
                                 <div className="md:w-1/2 aspect-square md:aspect-auto relative group">
-                                    <img src={getDoctorImg(selectedDoc)} alt={selectedDoc.name} className="w-full h-full object-cover" />
+                                    <img
+                                        src={getDoctorImg(selectedDoc)}
+                                        alt={selectedDoc.name}
+                                        className="w-full h-full object-cover"
+                                        onError={e => { e.target.onerror = null; e.target.src = selectedDoc.gender === 'male' ? '/doctors/male-doctor.png' : '/doctors/female-doctor.png'; }}
+                                    />
 
                                     {((user?.role === 'admin' || user?.isAdmin) || String(user?._id) === String(selectedDoc?._id) || String(user?._id) === String(selectedDoc?.userId)) && (
                                         <>

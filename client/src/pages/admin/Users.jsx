@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Layout from '../../components/layout/Layout';
 import axios from 'axios';
 import { Table, message } from 'antd';
@@ -38,12 +38,12 @@ const Users = () => {
         {
             title: 'Doctor',
             dataIndex: 'isDoctor',
-            render: (text, record) => (<span>{record.isDoctor ? 'Yes' : 'No'}</span>)
+            render: (_, record) => (<span>{record.isDoctor ? 'Yes' : 'No'}</span>)
         },
         {
             title: 'Actions',
             dataIndex: 'actions',
-            render: (text, record) => (
+            render: () => (
                 <div className="d-flex">
                     <button className="bg-red-500 text-white px-3 py-1 rounded-sm text-xs">Block</button>
                 </div>

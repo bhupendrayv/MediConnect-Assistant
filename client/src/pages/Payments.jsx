@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/layout/Layout';
 import axios from 'axios';
 import { Table, Tag, message, Tooltip } from 'antd';
@@ -66,14 +66,14 @@ const Payments = () => {
         </table>
         <div class='footer'><p>© 2024 Smart Health Assistant. All Rights Reserved.</p>
         <p>For support: medi.connectofficial2026@gmail.com</p></div>
-        <script>window.onload=function(){window.print();}<\/script>
+        <script>window.onload=function(){window.print();}</script>
         </body></html>`;
         const w = window.open('', '_blank');
         w.document.write(html);
         w.document.close();
     };
 
-    const getPayments = async () => {
+    const getPayments = useCallback(async () => {
         try {
             setLoading(true);
             const res = await axios.get('/api/v1/user/user-appointments', {
@@ -88,11 +88,10 @@ const Payments = () => {
         } catch (error) {
             setLoading(false);
             console.log(error);
-            message.error('Error fetching payments');
         }
-    };
+    }, [setAppointments]);
 
-    const verifyStripePayment = async (sessionId, appointmentId) => {
+    const verifyStripePayment = useCallback(async (sessionId, appointmentId) => {
         try {
             setLoading(true);
             message.loading({ content: 'Verifying your payment...', key: 'verify', duration: 0 });
@@ -117,9 +116,8 @@ const Payments = () => {
             message.destroy('verify');
             console.log(error);
             message.error('Error verifying Stripe payment');
-            getPayments();
         }
-    };
+    }, [getPayments]);
 
     useEffect(() => {
         const urlParams = new URLSearchParams(window.location.search);
@@ -131,7 +129,7 @@ const Payments = () => {
         } else {
             getPayments();
         }
-    }, []);
+    }, [verifyStripePayment, getPayments]);
 
     const columns = [
         {

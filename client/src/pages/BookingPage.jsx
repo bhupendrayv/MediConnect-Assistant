@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Layout from '../components/layout/Layout';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -145,6 +145,8 @@ const BookingPage = () => {
                 return message.error(res.data.message || 'Booking initiation failed.');
             }
 
+            setAppointmentCode(res.data.data.appointmentCode);
+            setBookedAppointment(res.data.data);
             const appointmentId = res.data.data._id;
             const totalAmount = res.data.data.totalAmount;
 
@@ -179,7 +181,7 @@ const BookingPage = () => {
 
     useEffect(() => {
         getDoctorData();
-    }, []);
+    }, [getDoctorData]);
 
     // Helper to get image based on gender
     const getDoctorImg = (doc) => {
@@ -349,12 +351,12 @@ const BookingPage = () => {
                             {/* Progress bar */}
                             <div className="flex items-center gap-4 mb-16 overflow-x-auto pb-4">
                                 {[1, 2, 3, 4, 5, 6].map(i => (
-                                    <React.Fragment key={i}>
+                                    <div key={i} className="contents">
                                         <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm italic flex-shrink-0 transition-all ${step >= i ? 'bg-primary text-white shadow-lg shadow-emerald-200 scale-110' : 'bg-slate-100 text-slate-300'}`}>
                                             {step > i ? <FiCheckCircle /> : `0${i}`}
                                         </div>
                                         {i < 6 && <div className={`flex-1 h-1 rounded-full min-w-[20px] ${step > i ? 'bg-primary' : 'bg-slate-100'}`}></div>}
-                                    </React.Fragment>
+                                    </div>
                                 ))}
                             </div>
 

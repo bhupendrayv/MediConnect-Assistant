@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Layout from '../components/layout/Layout';
-import { Form, Input, message, Tabs } from 'antd';
+import { Form, Input, message } from 'antd';
 import { useSelector, useDispatch } from 'react-redux';
 import { showLoading, hideLoading } from '../redux/features/alertSlice';
 import axios from 'axios';
-import { FiActivity, FiAlertCircle, FiCheckCircle, FiCpu, FiMessageSquare, FiShield, FiClock } from 'react-icons/fi';
+import { FiActivity, FiAlertCircle, FiCheckCircle, FiCpu, FiMessageSquare, FiClock } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import moment from 'moment';
 
@@ -33,7 +33,7 @@ const AIHelper = () => {
         if (user) {
             getHistory();
         }
-    }, [user]);
+    }, [user, getHistory]);
 
     const onFinish = async (values) => {
         try {
@@ -143,7 +143,7 @@ const AIHelper = () => {
                                                 <div>
                                                     <h4 className="text-white/30 font-black uppercase tracking-widest text-[8px] mb-1">Suggested Solution / Advice</h4>
                                                     <p className="text-xs font-medium text-slate-300 leading-relaxed italic border-l-2 border-primary pl-3">
-                                                        "{diagnosis.solution}"
+                                                        &quot;{diagnosis.solution}&quot;
                                                     </p>
                                                 </div>
 

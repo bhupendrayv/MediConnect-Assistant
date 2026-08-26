@@ -1,6 +1,4 @@
-import React from 'react';
-import { Form, Input, message } from 'antd';
-import { useDispatch } from 'react-redux';
+import { Form, Input, message } from 'antd';import { useDispatch } from 'react-redux';
 import { showLoading, hideLoading } from '../redux/features/alertSlice';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../services/api';
@@ -16,22 +14,31 @@ const Login = () => {
             dispatch(showLoading());
             const res = await api.post('/user/login', values);
             dispatch(hideLoading());
+
             if (res.data.success) {
                 localStorage.setItem('token', res.data.token);
                 message.success('Welcome back!');
                 navigate('/dashboard');
             } else {
-                message.error(res.data.message);
+                // Show the exact message from the server (e.g., "Incorrect password", "No account found")
+                message.error(res.data.message || 'Login failed. Please check your credentials.');
             }
         } catch (error) {
             dispatch(hideLoading());
-            console.error('Login Caught Error:', error);
-            if (error.response) {
-                console.error('Error Response:', error.response.data);
-                console.error('Error Status:', error.response.status);
+            console.error('Login error:', error);
+            const status = error.response?.status;
+            const serverMsg = error.response?.data?.message;
+
+            if (status === 503) {
+                // DB not connected yet
+                message.error('Server is starting up — database not connected yet. Please wait 10 seconds and try again.');
+            } else if (serverMsg) {
+                message.error(serverMsg);
+            } else if (error.code === 'ERR_NETWORK' || !error.response) {
+                message.error('Cannot connect to server. Make sure the backend is running on port 8082.');
+            } else {
+                message.error(`Server error (${status}): Please try again.`);
             }
-            const errorMsg = error.response?.data?.message || 'Invalid credentials or server error. Please try again.';
-            message.error(errorMsg);
         }
     };
 
@@ -71,7 +78,7 @@ const Login = () => {
                     </button>
 
                     <div className="text-center font-bold text-slate-400 text-xs">
-                        Don't have an account? <Link to="/register" className="text-primary hover:underline ml-1">Create One Now</Link>
+                        Don&apos;t have an account? <Link to="/register" className="text-primary hover:underline ml-1">Create One Now</Link>
                     </div>
                 </Form>
             </motion.div>

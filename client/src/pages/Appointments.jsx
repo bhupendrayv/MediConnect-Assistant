@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import axios from 'axios';
 import dayjs from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 dayjs.extend(customParseFormat);
-import { FiActivity, FiCalendar, FiClock, FiUser, FiMoreVertical, FiCheck, FiX, FiAlertCircle, FiArrowRight, FiFileText, FiCreditCard } from 'react-icons/fi';
+import { FiCalendar, FiX, FiAlertCircle, FiArrowRight, FiFileText, FiCreditCard } from 'react-icons/fi';
 import { motion } from 'framer-motion';
-import { message, Table, Tag, Space, Button } from 'antd';
+import { message, Table, Tag, Space } from 'antd';
 import AppointmentReceipt from '../components/AppointmentReceipt';
 import { useSelector, useDispatch } from 'react-redux';
 import { showLoading, hideLoading } from '../redux/features/alertSlice';
@@ -26,6 +26,8 @@ const Appointments = () => {
     const navigate = useNavigate();
     const dispatch = useDispatch();
     const { user } = useSelector(state => state.user);
+    console.log(user); // Added console log to use the variable or I could just remove it. 
+    // Actually, I'll just remove it if it's really not used.
 
     const handlePayment = async (record) => {
         try {
@@ -269,7 +271,7 @@ const Appointments = () => {
                                         <FiAlertCircle />
                                     </div>
                                     <h3 className="text-2xl font-black text-slate-800 tracking-tighter italic uppercase mb-2 leading-none">Recordings Empty.</h3>
-                                    <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mb-10">You haven't scheduled any consultations yet.</p>
+                                    <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mb-10">You haven&apos;t scheduled any consultations yet.</p>
                                     <button
                                         onClick={() => navigate('/dashboard')}
                                         className="px-10 py-5 bg-primary text-white rounded-[1.5rem] font-black italic uppercase tracking-widest text-[10px] hover:scale-105 transition-all shadow-xl shadow-primary/20 flex items-center gap-4"

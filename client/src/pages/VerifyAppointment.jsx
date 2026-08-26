@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import Layout from '../components/layout/Layout';
 import { Form, Input, message, Tag } from 'antd';
 import axios from 'axios';
-import { FiActivity, FiSearch, FiUser, FiCalendar, FiClock, FiFileText, FiMapPin, FiHash } from 'react-icons/fi';
+import { FiActivity, FiSearch, FiUser, FiCalendar, FiClock, FiFileText, FiHash } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSelector } from 'react-redux';
 import moment from 'moment';
@@ -162,7 +162,7 @@ const VerifyAppointment = () => {
                                             <FiFileText /> Medical Problem Case
                                         </h3>
                                         <p className="text-white/80 font-bold italic text-sm leading-relaxed mb-8 uppercase tracking-wide">
-                                            "{appointment.userInfo.problem || 'No description provided.'}"
+                                            &quot;{appointment.userInfo.problem || 'No description provided.'}&quot;
                                         </p>
 
                                         <div className="pt-6 border-t border-white/5">

@@ -1,12 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Layout from '../components/layout/Layout';
-import { Form, Input, Select, DatePicker, message, Table, Tag, Modal, Button } from 'antd';
+import { Form, Input, Select, DatePicker, message, Table, Tag, Modal } from 'antd';
 import axios from 'axios';
 import { useSelector, useDispatch } from 'react-redux';
 import { showLoading, hideLoading } from '../redux/features/alertSlice';
-import { FiPlus, FiActivity, FiDroplet, FiMapPin, FiCalendar, FiPhone } from 'react-icons/fi';
-import { motion, AnimatePresence } from 'framer-motion';
-import moment from 'moment';
+import { FiPlus, FiDroplet } from 'react-icons/fi';import moment from 'moment';
 
 const BloodBank = () => {
     const { user } = useSelector(state => state.user);
@@ -220,7 +218,7 @@ const BloodBank = () => {
                 </Modal>
             </div>
 
-            <style jsx="true">{`
+            <style>{`
                 .blood-select .ant-select-selector {
                     height: 56px !important;
                     border-radius: 1rem !important;
