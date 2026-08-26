@@ -1,14 +1,41 @@
 const express = require('express');
-const { getUserData, applyDoctorController, getAllNotificationController, bookAppointmentController, bookingAvailabilityController, userAppointmentsController, predictDiseaseController, getDiagnosisHistoryController, checkAppointmentController, getDashboardStatsController, cancelAppointmentController, rescheduleAppointmentController, getPublicDoctorsController, updatePublicDoctorController, updateUserProfileController, createRazorpayOrderController, verifyPaymentController } = require('../controllers/userController');
-const { createStripeSessionController, verifyStripePaymentController } = require('../controllers/stripeController');
-const { getSiteSettingsController } = require('../controllers/adminController');
-const { requestBloodController, getBloodRequestsController } = require('../controllers/bloodBankController');
+const {
+    getUserData,
+    applyDoctorController,
+    getAllNotificationController,
+    bookAppointmentController,
+    bookingAvailabilityController,
+    userAppointmentsController,
+    predictDiseaseController,
+    getDiagnosisHistoryController,
+    checkAppointmentController,
+    getDashboardStatsController,
+    cancelAppointmentController,
+    rescheduleAppointmentController,
+    getPublicDoctorsController,
+    updatePublicDoctorController,
+    updateUserProfileController,
+    createRazorpayOrderController,
+    verifyPaymentController
+} = require('../controllers/userController');
+const {
+    createStripeSessionController,
+    verifyStripePaymentController
+} = require('../controllers/stripeController');
+const {
+    getSiteSettingsController
+} = require('../controllers/adminController');
+const {
+    requestBloodController,
+    getBloodRequestsController
+} = require('../controllers/bloodBankController');
 const authMiddleware = require('../middlewares/authMiddleware');
 
 const router = express.Router();
 
-// Get User Data || POST
+// Get User Data || POST & GET
 router.post('/getUserData', authMiddleware, getUserData);
+router.get('/getUserData', authMiddleware, getUserData);
 
 // Apply Doctor || POST
 router.post('/apply-doctor', authMiddleware, applyDoctorController);
@@ -28,8 +55,9 @@ router.get('/user-appointments', authMiddleware, userAppointmentsController);
 // Predict Disease || POST
 router.post('/predict-disease', authMiddleware, predictDiseaseController);
 
-// Get Diagnosis History || POST
+// Get Diagnosis History || POST & GET
 router.post('/get-diagnosis-history', authMiddleware, getDiagnosisHistoryController);
+router.get('/get-diagnosis-history', authMiddleware, getDiagnosisHistoryController);
 
 // Check Appointment || POST
 router.post('/check-appointment', authMiddleware, checkAppointmentController);
@@ -51,9 +79,9 @@ router.get('/get-blood-requests', authMiddleware, getBloodRequestsController);
 router.get('/getAllDoctors', getPublicDoctorsController);
 router.post('/updateDoctorPublic', authMiddleware, updatePublicDoctorController);
 
-// Update User Profile (Image)
+// Update User Profile (Image, Bio, Name)
 router.post('/update-profile-picture', authMiddleware, updateUserProfileController);
-
+router.post('/update-profile', authMiddleware, updateUserProfileController);
 
 // Public Site Settings
 router.get('/getPublicSiteSettings', getSiteSettingsController);
@@ -67,4 +95,3 @@ router.post('/create-stripe-session', authMiddleware, createStripeSessionControl
 router.post('/verify-stripe-payment', authMiddleware, verifyStripePaymentController);
 
 module.exports = router;
-

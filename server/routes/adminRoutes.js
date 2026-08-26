@@ -1,6 +1,15 @@
 const express = require('express');
-const { getAllUsersController, getAllDoctorsController, changeAccountStatusController, getSiteSettingsController, updateSiteSettingsController } = require('../controllers/adminController');
-const { getAllBloodRequestsController, updateBloodStatusController } = require('../controllers/bloodBankController');
+const {
+    getAllUsersController,
+    getAllDoctorsController,
+    changeAccountStatusController,
+    getSiteSettingsController,
+    updateSiteSettingsController
+} = require('../controllers/adminController');
+const {
+    getAllBloodRequestsController,
+    updateBloodStatusController
+} = require('../controllers/bloodBankController');
 
 const authMiddleware = require('../middlewares/authMiddleware');
 
@@ -22,6 +31,5 @@ router.post('/updateBloodStatus', authMiddleware, updateBloodStatusController);
 // Site Settings Routes
 router.get('/getSiteSettings', authMiddleware, getSiteSettingsController);
 router.post('/updateSiteSettings', authMiddleware, updateSiteSettingsController);
-
 
 module.exports = router;

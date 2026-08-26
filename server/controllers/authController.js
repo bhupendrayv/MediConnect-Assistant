@@ -1,85 +1,140 @@
 const User = require('../models/User');
-const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 const registerController = async (req, res) => {
     try {
-        console.log('Registration Attempt:', req.body.email, 'Role:', req.body.role);
-        const { name, email, password, role, specialization, experience, feesPerConsultation, timings } = req.body;
-        const normalizedEmail = email.toLowerCase();
+        const { name, email, password, role, phone, specialization, experience, feesPerConsultation } = req.body;
 
+        // 1. Validate required fields
+        if (!name || !name.trim()) {
+            return res.status(400).send({ success: false, message: 'Full name is required.' });
+        }
+        if (!email || !email.trim()) {
+            return res.status(400).send({ success: false, message: 'Email address is required.' });
+        }
+        if (!password || password.length < 6) {
+            return res.status(400).send({ success: false, message: 'Password must be at least 6 characters.' });
+        }
+
+        // 2. Normalize email
+        const normalizedEmail = email.toLowerCase().trim();
+
+        // 3. Check if user already exists
         const existingUser = await User.findOne({ email: normalizedEmail });
         if (existingUser) {
-            return res.status(200).send({ message: 'User already exists', success: false });
+            return res.status(200).send({ success: false, message: 'An account with this email already exists. Please log in.' });
         }
 
+        const userRole = role === 'admin' ? 'admin' : (role === 'doctor' ? 'doctor' : 'patient');
+        const isDoc = userRole === 'doctor';
+        const isAdm = userRole === 'admin';
+
+        // 4. Create user
         const newUser = new User({
-            name,
+            name: name.trim(),
             email: normalizedEmail,
             password,
-            role,
-            specialization,
-            experience,
-            feesPerConsultation,
-            timings
+            role: userRole,
+            isAdmin: isAdm,
+            isDoctor: isDoc,
+            status: isDoc ? 'pending' : 'approved',
+            phone: phone ? phone.trim() : '',
+            specialization: specialization || undefined,
+            experience: experience || undefined,
+            feesPerConsultation: feesPerConsultation ? Number(feesPerConsultation) : undefined,
         });
-        console.log('New User Object Created');
 
-        if (role === 'doctor') {
-            newUser.isDoctor = true;
-        }
+        await newUser.save();
 
-        try {
-            await newUser.save();
-            console.log('User saved successfully');
-            res.status(201).send({ message: 'Register Successfully', success: true });
-        } catch (saveError) {
-            console.error('Mongoose Save Error:', saveError);
-            if (saveError.name === 'ValidationError') {
-                const messages = Object.values(saveError.errors).map(err => err.message);
-                return res.status(200).send({ message: `Validation Error: ${messages.join(', ')}`, success: false });
-            }
-            throw saveError; // Re-throw to be caught by outer catch
-        }
+        res.status(201).send({
+            success: true,
+            message: 'Account created successfully! Please log in.',
+        });
 
     } catch (error) {
         console.error('Register Controller Error:', error);
-        res.status(500).send({ 
-            success: false, 
-            message: `Registration Error: ${error.message || 'Internal Server Error'}`,
-            error: process.env.NODE_ENV === 'development' ? error : undefined
+
+        // Mongoose duplicate key
+        if (error.code === 11000) {
+            return res.status(200).send({ success: false, message: 'An account with this email already exists.' });
+        }
+        // Mongoose validation error
+        if (error.name === 'ValidationError') {
+            const msgs = Object.values(error.errors).map(e => e.message);
+            return res.status(400).send({ success: false, message: msgs.join('. ') });
+        }
+
+        res.status(500).send({
+            success: false,
+            message: 'A server error occurred during registration. Please try again.',
         });
     }
 };
 
 const loginController = async (req, res) => {
     try {
-        console.log('Login Attempt:', req.body.email);
-        const normalizedEmail = req.body.email?.toLowerCase();
-        if (!normalizedEmail) {
-            return res.status(200).send({ message: 'Email is required', success: false });
+        const { email, password } = req.body;
+        if (!email || !email.trim()) {
+            return res.status(400).send({ success: false, message: 'Email is required.' });
         }
+        if (!password) {
+            return res.status(400).send({ success: false, message: 'Password is required.' });
+        }
+
+        const normalizedEmail = email.toLowerCase().trim();
         const user = await User.findOne({ email: normalizedEmail });
-        console.log('User found:', user ? 'Yes' : 'No');
         if (!user) {
-            return res.status(200).send({ message: 'User not found (check email)', success: false });
+            return res.status(200).send({ success: false, message: 'No account found with this email. Please register first.' });
         }
-        const isMatch = await user.matchPassword(req.body.password);
-        console.log('Password Match:', isMatch ? 'Yes' : 'No');
+
+        const isMatch = await user.matchPassword(password);
         if (!isMatch) {
-            return res.status(200).send({ message: 'Invalid Password', success: false });
+            return res.status(200).send({ success: false, message: 'Incorrect password. Please try again.' });
         }
-        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1d' });
-        res.status(200).send({ message: 'Login Success', success: true, token, role: user.role });
+
+        if (!process.env.JWT_SECRET) {
+            console.error('CRITICAL: JWT_SECRET is not defined in environment variables');
+            return res.status(500).send({ success: false, message: 'Server configuration error. Please contact support.' });
+        }
+
+        const token = jwt.sign(
+            { id: user._id, role: user.role, isAdmin: user.isAdmin, isDoctor: user.isDoctor },
+            process.env.JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+
+        const safeUser = {
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            isAdmin: user.role === 'admin' || !!user.isAdmin,
+            isDoctor: user.role === 'doctor' || !!user.isDoctor,
+            status: user.status,
+            image: user.image || '',
+            phone: user.phone || '',
+            bio: user.bio || '',
+            address: user.address || ''
+        };
+
+        res.status(200).send({
+            success: true,
+            message: 'Login successful!',
+            token,
+            role: user.role,
+            user: safeUser
+        });
+
     } catch (error) {
-        console.log(error);
-        res.status(500).send({ message: `Error in Login CTRL ${error.message}` });
+        console.error('Login Controller Error:', error);
+        res.status(500).send({
+            success: false,
+            message: 'A server error occurred during login. Please try again in a moment.',
+        });
     }
 };
 
-const authController = {
+module.exports = {
     loginController,
     registerController
 };
-
-module.exports = authController;

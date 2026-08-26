@@ -11,8 +11,9 @@ const authMiddleware = require('../middlewares/authMiddleware');
 
 const router = express.Router();
 
-// POST SINGLE DOCTOR INFO
+// POST & GET SINGLE DOCTOR INFO
 router.post('/getDoctorInfo', authMiddleware, getDoctorInfoController);
+router.get('/getDoctorInfo', authMiddleware, getDoctorInfoController);
 
 // POST UPDATE PROFILE
 router.post('/updateProfile', authMiddleware, updateProfileController);

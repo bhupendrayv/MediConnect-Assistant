@@ -2,127 +2,200 @@ const Appointment = require('../models/Appointment');
 const User = require('../models/User');
 const mongoose = require('mongoose');
 
+// Get profile info of current logged-in doctor
 const getDoctorInfoController = async (req, res) => {
     try {
-        const doctor = await User.findOne({ _id: req.body.userId });
+        const doctorId = req.user?.id || req.body.userId;
+        const doctor = await User.findById(doctorId).select('-password');
+
+        if (!doctor) {
+            return res.status(404).send({
+                success: false,
+                message: 'Doctor account not found'
+            });
+        }
+
         res.status(200).send({
             success: true,
-            message: 'Doctor data fetch success',
+            message: 'Doctor data fetched successfully',
             data: doctor,
         });
     } catch (error) {
-        console.log(error);
+        console.error('Error in getDoctorInfoController:', error);
         res.status(500).send({
             success: false,
-            error,
-            message: 'Error in Fetching Doctor Details',
+            error: error.message,
+            message: 'Error in fetching doctor details',
         });
     }
 };
 
+// Update doctor profile (services, timings, fees, etc.)
 const updateProfileController = async (req, res) => {
     try {
-        const doctor = await User.findOneAndUpdate(
-            { _id: req.body.userId },
-            req.body,
+        const doctorId = req.user?.id || req.body.userId;
+        const updateData = { ...req.body };
+        delete updateData.password;
+        delete updateData.role;
+        delete updateData.isAdmin;
+
+        const doctor = await User.findByIdAndUpdate(
+            doctorId,
+            updateData,
             { new: true }
-        );
-        res.status(201).send({
+        ).select('-password');
+
+        if (!doctor) {
+            return res.status(404).send({
+                success: false,
+                message: 'Doctor profile not found'
+            });
+        }
+
+        res.status(200).send({
             success: true,
-            message: 'Doctor Profile Updated',
+            message: 'Doctor profile updated successfully',
             data: doctor,
         });
     } catch (error) {
-        console.log(error);
+        console.error('Error in updateProfileController:', error);
         res.status(500).send({
             success: false,
-            message: 'Doctor Profile Update Issue',
-            error,
+            message: 'Error updating doctor profile',
+            error: error.message,
         });
     }
 };
 
+// Get single doctor details by Doctor ID
 const getDoctorByIdController = async (req, res) => {
     try {
-        const doctor = await User.findOne({ _id: req.body.doctorId });
+        const doctorId = req.body.doctorId || req.user?.id;
+        if (!doctorId) {
+            return res.status(400).send({
+                success: false,
+                message: 'doctorId is required'
+            });
+        }
+
+        const doctor = await User.findById(doctorId).select('-password');
+        if (!doctor) {
+            return res.status(404).send({
+                success: false,
+                message: 'Doctor not found'
+            });
+        }
+
         res.status(200).send({
             success: true,
-            message: 'Single Doctor Info Fetched',
+            message: 'Doctor info fetched successfully',
             data: doctor,
         });
     } catch (error) {
-        console.log(error);
+        console.error('Error in getDoctorByIdController:', error);
         res.status(500).send({
             success: false,
-            error,
-            message: 'Error in Single Doctor Info',
+            error: error.message,
+            message: 'Error in fetching doctor info',
         });
     }
 };
 
+// Get list of appointments for a doctor
 const doctorAppointmentsController = async (req, res) => {
     try {
-        const doctor = await User.findOne({ _id: req.body.userId });
+        const doctorId = req.user?.id || req.body.userId;
+        const doctor = await User.findById(doctorId);
 
-        // Query directly using the authorized user's ID
-        // Use $or to handle potential String vs ObjectId mismatch in database
-        // AND fallback to matching by Name if ID fails
-        const doctorId = req.body.userId;
-        console.log("DoctorAppointments fetched for Doctor ID:", doctorId, "Name:", doctor?.name);
+        const orConditions = [{ doctorId: doctorId }];
+        if (mongoose.Types.ObjectId.isValid(doctorId)) {
+            orConditions.push({ doctorId: new mongoose.Types.ObjectId(doctorId) });
+        }
+        if (doctor?.name) {
+            orConditions.push({ 'doctorInfo.name': doctor.name });
+        }
 
-        const appointments = await Appointment.find({
-            $or: [
-                { doctorId: doctorId },
-                { doctorId: new mongoose.Types.ObjectId(doctorId) },
-                { 'doctorInfo.name': doctor?.name }
-            ]
-        }).sort({ createdAt: -1 });
+        const appointments = await Appointment.find({ $or: orConditions }).sort({ createdAt: -1 });
 
-        console.log("Found Appointments:", appointments.length);
         res.status(200).send({
             success: true,
-            message: 'Doctor Appointments Fetch Successfully',
+            message: 'Doctor appointments fetched successfully',
             data: appointments,
         });
     } catch (error) {
-        console.log(error);
+        console.error('Error in doctorAppointmentsController:', error);
         res.status(500).send({
             success: false,
-            error,
-            message: 'Error in Doctor Appointments',
+            error: error.message,
+            message: 'Error in fetching doctor appointments',
         });
     }
 };
 
+// Update appointment status (approved, rejected, completed, cancelled)
 const updateStatusController = async (req, res) => {
     try {
         const { appointmentsId, status } = req.body;
-        const appointments = await Appointment.findByIdAndUpdate(appointmentsId, { status });
-        const user = await User.findOne({ _id: appointments.userId });
-        const unseenNotifications = user.unseenNotifications;
-        unseenNotifications.push({
-            type: 'status-updated',
-            message: `Your appointment has been ${status}`,
-            onClickPath: '/appointments'
-        });
-        await user.save();
+        if (!appointmentsId || !status) {
+            return res.status(400).send({
+                success: false,
+                message: 'appointmentsId and status are required'
+            });
+        }
+
+        const appointment = await Appointment.findByIdAndUpdate(
+            appointmentsId,
+            { status },
+            { new: true }
+        );
+
+        if (!appointment) {
+            return res.status(404).send({
+                success: false,
+                message: 'Appointment not found'
+            });
+        }
+
+        // Send notification to patient
+        if (appointment.userId) {
+            const user = await User.findById(appointment.userId);
+            if (user) {
+                if (!user.unseenNotifications) user.unseenNotifications = [];
+                user.unseenNotifications.push({
+                    type: 'appointment-status-updated',
+                    message: `Your appointment with Dr. ${appointment.doctorInfo?.name || 'Specialist'} has been ${status}`,
+                    data: {
+                        appointmentId: appointment._id,
+                        appointmentCode: appointment.appointmentCode,
+                        status
+                    },
+                    onClickPath: '/appointments',
+                    createdAt: new Date()
+                });
+                await user.save();
+            }
+        }
+
         res.status(200).send({
             success: true,
-            message: 'Appointment Status Updated',
+            message: `Appointment status updated to ${status}`,
+            data: appointment
         });
     } catch (error) {
-        console.log(error);
+        console.error('Error in updateStatusController:', error);
         res.status(500).send({
             success: false,
-            error,
-            message: 'Error in Update Status',
+            error: error.message,
+            message: 'Error updating appointment status',
         });
     }
 };
 
+// Toggle doctor availability (online / offline)
 const toggleAvailabilityController = async (req, res) => {
     try {
-        const doctor = await User.findOne({ _id: req.body.userId });
+        const doctorId = req.user?.id || req.body.userId;
+        const doctor = await User.findById(doctorId);
 
         if (!doctor) {
             return res.status(404).send({
@@ -131,21 +204,20 @@ const toggleAvailabilityController = async (req, res) => {
             });
         }
 
-        // Toggle the availability status
         doctor.isAvailable = !doctor.isAvailable;
         await doctor.save();
 
         res.status(200).send({
             success: true,
-            message: `You are now ${doctor.isAvailable ? 'Available' : 'Unavailable'}`,
+            message: `Status updated: You are now ${doctor.isAvailable ? 'Available' : 'Unavailable'}`,
             data: { isAvailable: doctor.isAvailable },
         });
     } catch (error) {
-        console.log(error);
+        console.error('Error in toggleAvailabilityController:', error);
         res.status(500).send({
             success: false,
-            error,
-            message: 'Error in Toggling Availability',
+            error: error.message,
+            message: 'Error toggling availability',
         });
     }
 };

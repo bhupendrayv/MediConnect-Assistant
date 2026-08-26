@@ -1,29 +1,34 @@
 const User = require('../models/User');
 const SiteSettings = require('../models/SiteSettings');
 
-
+// Get site settings (public or admin)
 const getSiteSettingsController = async (req, res) => {
     try {
         let settings = await SiteSettings.findOne();
         if (!settings) {
-            settings = new SiteSettings();
+            settings = new SiteSettings({
+                emergencyContact: '+91 1234567890',
+                address: '123, Health Street, Medical District, City - 400001',
+                email: 'medi.connectofficial2026@gmail.com'
+            });
             await settings.save();
         }
         res.status(200).send({
             success: true,
-            message: 'Site Settings Fetched',
+            message: 'Site settings fetched successfully',
             data: settings,
         });
     } catch (error) {
-        console.log(error);
+        console.error('Error in getSiteSettingsController:', error);
         res.status(500).send({
             success: false,
             message: 'Error fetching site settings',
-            error,
+            error: error.message,
         });
     }
 };
 
+// Update site settings (admin only)
 const updateSiteSettingsController = async (req, res) => {
     try {
         const { emergencyContact, address, email } = req.body;
@@ -31,92 +36,129 @@ const updateSiteSettingsController = async (req, res) => {
         if (!settings) {
             settings = new SiteSettings({ emergencyContact, address, email });
         } else {
-            settings.emergencyContact = emergencyContact;
-            settings.address = address;
-            settings.email = email;
+            if (emergencyContact !== undefined) settings.emergencyContact = emergencyContact;
+            if (address !== undefined) settings.address = address;
+            if (email !== undefined) settings.email = email;
         }
         await settings.save();
         res.status(200).send({
             success: true,
-            message: 'Site Settings Updated Successfully',
+            message: 'Site settings updated successfully',
             data: settings,
         });
     } catch (error) {
-        console.log(error);
+        console.error('Error in updateSiteSettingsController:', error);
         res.status(500).send({
             success: false,
             message: 'Error updating site settings',
-            error,
+            error: error.message,
         });
     }
 };
 
-
+// Get all registered users (patients)
 const getAllUsersController = async (req, res) => {
     try {
-        const users = await User.find({ role: 'patient' });
+        const users = await User.find({ role: 'patient' }).select('-password').sort({ createdAt: -1 });
         res.status(200).send({
             success: true,
-            message: 'Users Data List',
+            message: 'Users fetched successfully',
             data: users,
         });
     } catch (error) {
-        console.log(error);
+        console.error('Error in getAllUsersController:', error);
         res.status(500).send({
             success: false,
             message: 'Error while fetching users',
-            error,
+            error: error.message,
         });
     }
 };
 
+// Get all doctors (pending & approved)
 const getAllDoctorsController = async (req, res) => {
     try {
-        const doctors = await User.find({ role: 'doctor' }); // Or filter by isDoctor/application status
+        const doctors = await User.find({
+            $or: [{ role: 'doctor' }, { isDoctor: true }, { status: { $in: ['pending', 'approved', 'rejected'] } }]
+        }).select('-password').sort({ createdAt: -1 });
+
         res.status(200).send({
             success: true,
-            message: 'Doctors Data List',
+            message: 'Doctors fetched successfully',
             data: doctors,
         });
     } catch (error) {
-        console.log(error);
+        console.error('Error in getAllDoctorsController:', error);
         res.status(500).send({
             success: false,
             message: 'Error while fetching doctors',
-            error,
+            error: error.message,
         });
     }
 };
 
+// Approve, reject, or suspend doctor account
 const changeAccountStatusController = async (req, res) => {
     try {
         const { doctorId, status } = req.body;
-        const doctor = await User.findByIdAndUpdate(doctorId, { status });
 
-        const user = await User.findOne({ _id: doctor._id });
-        const unseenNotifications = user.unseenNotifications || [];
-        unseenNotifications.push({
-            type: 'doctor-account-request-updated',
-            message: `Your Doctor Account Request Has Been ${status}`,
-            onClickPath: '/notification'
+        if (!doctorId || !status) {
+            return res.status(400).send({
+                success: false,
+                message: 'doctorId and status are required'
+            });
+        }
+
+        const isApproved = status === 'approved';
+        const updatedDoctor = await User.findByIdAndUpdate(
+            doctorId,
+            {
+                status,
+                isDoctor: isApproved,
+                role: isApproved ? 'doctor' : 'patient'
+            },
+            { new: true }
+        ).select('-password');
+
+        if (!updatedDoctor) {
+            return res.status(404).send({
+                success: false,
+                message: 'Doctor not found'
+            });
+        }
+
+        // Send notification to doctor
+        if (!updatedDoctor.unseenNotifications) updatedDoctor.unseenNotifications = [];
+        updatedDoctor.unseenNotifications.push({
+            type: 'doctor-account-status-updated',
+            message: `Your doctor account request has been ${status}`,
+            data: {
+                status,
+                onClickPath: isApproved ? '/doctor/profile/' + updatedDoctor._id : '/apply-doctor'
+            },
+            createdAt: new Date()
         });
-        user.isDoctor = status === 'approved' ? true : false;
-        await user.save();
+        await updatedDoctor.save();
 
-        res.status(201).send({
+        res.status(200).send({
             success: true,
-            message: 'Account Status Updated',
-            data: doctor,
+            message: `Doctor account status changed to ${status}`,
+            data: updatedDoctor,
         });
     } catch (error) {
-        console.log(error);
+        console.error('Error in changeAccountStatusController:', error);
         res.status(500).send({
             success: false,
-            message: 'Error in Account Status',
-            error
+            message: 'Error in changing account status',
+            error: error.message
         });
     }
 };
 
-
-module.exports = { getAllUsersController, getAllDoctorsController, changeAccountStatusController, getSiteSettingsController, updateSiteSettingsController };
+module.exports = {
+    getAllUsersController,
+    getAllDoctorsController,
+    changeAccountStatusController,
+    getSiteSettingsController,
+    updateSiteSettingsController
+};

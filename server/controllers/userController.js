@@ -1,88 +1,135 @@
 const User = require('../models/User');
 const Appointment = require('../models/Appointment');
 const Diagnosis = require('../models/Diagnosis');
+const predictDisease = require('../utils/symptomChecker');
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
 
+// Get current user profile data
 const getUserData = async (req, res) => {
     try {
-        const user = await User.findById(req.body.userId);
+        const userId = req.user?.id || req.body.userId;
+        if (!userId) {
+            return res.status(400).send({
+                success: false,
+                message: 'User ID is required'
+            });
+        }
+
+        const user = await User.findById(userId).select('-password');
         if (!user) {
-            return res.status(200).send({
+            return res.status(404).send({
                 message: 'User not found',
                 success: false
             });
         }
-        user.password = undefined; // Hide password
+
+        const userData = user.toObject();
+        userData.isAdmin = userData.role === 'admin' || !!userData.isAdmin;
+        userData.isDoctor = userData.role === 'doctor' || !!userData.isDoctor;
+
         res.status(200).send({
             success: true,
-            data: user
+            data: userData
         });
     } catch (error) {
-        console.log(error);
+        console.error('Error in getUserData:', error);
         res.status(500).send({
-            message: 'Auth Error',
+            message: 'Authentication or Server Error',
             success: false,
-            error
+            error: error.message
         });
     }
 };
 
+// Apply for Doctor status
 const applyDoctorController = async (req, res) => {
     try {
-        const newDoctor = await User.findOneAndUpdate(
-            { _id: req.body.userId },
+        const userId = req.user?.id || req.body.userId;
+        const { specialization, experience, feesPerConsultation, timings, services, phone, address, bio } = req.body;
+
+        const updatedUser = await User.findByIdAndUpdate(
+            userId,
             {
-                isDoctor: false, // Pending approval
+                isDoctor: false, // Pending admin approval
                 status: 'pending',
-                ...req.body
+                specialization,
+                experience,
+                feesPerConsultation: Number(feesPerConsultation) || 500,
+                timings: timings || { start: "09:00", end: "17:00" },
+                services: Array.isArray(services) ? services : [],
+                phone: phone || '',
+                address: address || '',
+                bio: bio || ''
             },
             { new: true }
         );
 
-        // Notify admin (simplification: find admin and add notification)
+        if (!updatedUser) {
+            return res.status(404).send({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        // Notify admin
         const adminUser = await User.findOne({ role: 'admin' });
         if (adminUser) {
-            const notification = adminUser.seenNotifications;
-            notification.push({
+            if (!adminUser.unseenNotifications) {
+                adminUser.unseenNotifications = [];
+            }
+            adminUser.unseenNotifications.push({
                 type: 'apply-doctor-request',
-                message: `${newDoctor.name} Has Applied For A Doctor Account`,
+                message: `${updatedUser.name} has applied for a Doctor account`,
                 data: {
-                    doctorId: newDoctor._id,
-                    name: newDoctor.name,
+                    doctorId: updatedUser._id,
+                    name: updatedUser.name,
                     onClickPath: '/admin/doctors'
-                }
+                },
+                createdAt: new Date()
             });
-            await User.findByIdAndUpdate(adminUser._id, { seenNotifications: notification });
+            await adminUser.save();
         }
 
         res.status(201).send({
             success: true,
-            message: 'Doctor Account Applied Successfully'
+            message: 'Doctor account application submitted successfully. Awaiting admin approval.'
         });
 
     } catch (error) {
-        console.log(error);
+        console.error('Error in applyDoctorController:', error);
         res.status(500).send({
             success: false,
-            error,
-            message: 'Error While Applying For Doctor'
+            message: 'Error while applying for doctor account',
+            error: error.message
         });
     }
 };
 
+// Mark all notifications as seen
 const getAllNotificationController = async (req, res) => {
     try {
-        const user = await User.findOne({ _id: req.body.userId });
-        const seenNotifications = user.seenNotifications;
-        const unseenNotifications = user.unseenNotifications;
+        const userId = req.user?.id || req.body.userId;
+        const user = await User.findById(userId);
 
-        // Move all to seen
+        if (!user) {
+            return res.status(404).send({
+                success: false,
+                message: 'User not found'
+            });
+        }
+
+        const seenNotifications = user.seenNotifications || [];
+        const unseenNotifications = user.unseenNotifications || [];
+
+        // Move all unseen to seen
         seenNotifications.push(...unseenNotifications);
         user.unseenNotifications = [];
         user.seenNotifications = seenNotifications;
 
         const updatedUser = await user.save();
+        updatedUser.password = undefined;
+
         res.status(200).send({
             success: true,
             message: 'All notifications marked as read',
@@ -90,53 +137,46 @@ const getAllNotificationController = async (req, res) => {
         });
 
     } catch (error) {
-        console.log(error);
+        console.error('Error in getAllNotificationController:', error);
         res.status(500).send({
-            message: 'Error in Notification',
+            message: 'Error in notifications',
             success: false,
-            error
+            error: error.message
         });
     }
-}
+};
 
-
+// Book an appointment
 const bookAppointmentController = async (req, res) => {
     try {
-        const { doctorId, userId, doctorInfo, userInfo, date, time, selectedServices } = req.body;
+        const userId = req.user?.id || req.body.userId;
+        const { doctorId, doctorInfo, userInfo, date, time, selectedServices, symptoms } = req.body;
 
-        // Validate required fields
         if (!doctorId || !userId || !date || !time) {
             return res.status(400).send({
                 success: false,
-                message: 'Missing required fields: doctorId, userId, date, or time'
+                message: 'Doctor, date, and time are required to book an appointment'
             });
         }
 
         if (!doctorInfo || !userInfo) {
             return res.status(400).send({
                 success: false,
-                message: 'Missing doctor or user information'
+                message: 'Doctor and patient details are required'
             });
         }
 
-        console.log('Booking appointment for:', {
-            doctorId,
-            userId,
-            date,
-            time,
-            servicesCount: selectedServices?.length || 0
-        });
-
-        // Generate unique appointment code (e.g., HH-ABCD)
+        // Generate unique appointment code (e.g., HH-A1B2)
         const appointmentCode = `HH-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
 
-        // Generate formatted transaction ID (e.g., T1234567890)
+        // Generate unique transaction ID (e.g., T1234567890)
         const randomDigits = Array.from({ length: 10 }, () => Math.floor(Math.random() * 10)).join('');
         const transactionId = `T${randomDigits}`;
 
         // Calculate total amount
-        const servicesTotal = (selectedServices || []).reduce((acc, curr) => acc + (curr.price || 0), 0);
-        const totalAmount = (doctorInfo.feesPerConsultation || 0) + servicesTotal;
+        const servicesTotal = (selectedServices || []).reduce((acc, curr) => acc + (Number(curr.price) || 0), 0);
+        const baseFee = Number(doctorInfo.feesPerConsultation) || 0;
+        const totalAmount = baseFee + servicesTotal;
 
         const newAppointment = new Appointment({
             doctorId,
@@ -148,333 +188,399 @@ const bookAppointmentController = async (req, res) => {
             appointmentCode,
             transactionId,
             selectedServices: selectedServices || [],
+            symptoms: symptoms || '',
             status: 'pending',
+            paymentStatus: 'pending',
             totalAmount
         });
 
         await newAppointment.save();
-        console.log('Appointment saved successfully:', appointmentCode);
 
-        // Find doctor and add notification
-        const doctorUser = await User.findOne({ _id: doctorId });
+        // Notify doctor
+        const doctorUser = await User.findById(doctorId);
         if (doctorUser) {
-            // Ensure unseenNotifications array exists
             if (!doctorUser.unseenNotifications) {
                 doctorUser.unseenNotifications = [];
             }
-
             doctorUser.unseenNotifications.push({
                 type: 'new-appointment-request',
                 message: `New appointment request (${appointmentCode}) from ${userInfo.name}`,
-                onClickPath: '/doctor-appointments'
+                data: {
+                    appointmentId: newAppointment._id,
+                    appointmentCode
+                },
+                onClickPath: '/doctor-appointments',
+                createdAt: new Date()
             });
-
             await doctorUser.save();
-            console.log('Notification sent to doctor:', doctorUser.name);
-        } else {
-            console.warn('Doctor not found for notification:', doctorId);
         }
 
         res.status(200).send({
             success: true,
-            message: 'Appointment Booked Successfully',
+            message: 'Appointment booked successfully',
             data: newAppointment
         });
     } catch (error) {
         console.error('Error in bookAppointmentController:', error);
-        console.error('Error stack:', error.stack);
         res.status(500).send({
             success: false,
-            error,
-            message: error.message || 'Error While Booking Appointment',
+            message: error.message || 'Error while booking appointment',
+            error: error.message
         });
     }
 };
 
+// Check appointment by appointmentCode
 const checkAppointmentController = async (req, res) => {
     try {
         const { appointmentCode } = req.body;
-        const appointment = await Appointment.findOne({ appointmentCode });
+        if (!appointmentCode) {
+            return res.status(400).send({
+                success: false,
+                message: 'Appointment code is required'
+            });
+        }
+
+        const cleanCode = appointmentCode.trim().toUpperCase();
+        const appointment = await Appointment.findOne({ appointmentCode: cleanCode });
 
         if (!appointment) {
             return res.status(200).send({
                 success: false,
-                message: 'Invalid Appointment Code'
+                message: 'Invalid appointment code. No appointment found.'
             });
         }
 
         res.status(200).send({
             success: true,
-            message: 'Appointment Details Found',
+            message: 'Appointment details verified successfully',
             data: appointment
         });
 
     } catch (error) {
-        console.log(error);
+        console.error('Error in checkAppointmentController:', error);
         res.status(500).send({
             success: false,
-            message: 'Error In Verifying Appointment',
-            error
+            message: 'Error in verifying appointment',
+            error: error.message
         });
     }
 };
 
+// Check booking availability for date and time slot
 const bookingAvailabilityController = async (req, res) => {
     try {
-        const date = req.body.date;
-        const doctorId = req.body.doctorId;
-        const time = req.body.time;
+        const { doctorId, date, time } = req.body;
 
-        const appointments = await Appointment.find({
+        if (!doctorId || !date || !time) {
+            return res.status(400).send({
+                success: false,
+                message: 'doctorId, date, and time are required'
+            });
+        }
+
+        const existingAppointment = await Appointment.findOne({
             doctorId,
             date,
             time,
-            status: 'approved'
+            status: { $in: ['approved', 'pending'] }
         });
 
-        if (appointments.length > 0) {
+        if (existingAppointment) {
             return res.status(200).send({
-                message: 'Appointments not Available at this time',
+                message: 'Appointment slot is not available at this time',
                 success: false,
             });
         } else {
             return res.status(200).send({
                 success: true,
-                message: 'Appointments available',
+                message: 'Appointment slot is available',
             });
         }
 
     } catch (error) {
-        console.log(error);
+        console.error('Error in bookingAvailabilityController:', error);
         res.status(500).send({
             success: false,
-            error,
-            message: 'Error In Booking Availability',
+            error: error.message,
+            message: 'Error in checking booking availability',
         });
     }
 };
 
+// Get all appointments for a user
 const userAppointmentsController = async (req, res) => {
     try {
-        const appointments = await Appointment.find({ userId: req.body.userId }).sort({ createdAt: -1 });
+        const userId = req.user?.id || req.body.userId;
+        const appointments = await Appointment.find({ userId }).sort({ createdAt: -1 });
+
         res.status(200).send({
             success: true,
-            message: 'Users Appointments Fetch Successfully',
+            message: 'User appointments fetched successfully',
             data: appointments,
         });
     } catch (error) {
-        console.log(error);
+        console.error('Error in userAppointmentsController:', error);
         res.status(500).send({
             success: false,
-            error,
-            message: 'Error In User Appointments',
+            error: error.message,
+            message: 'Error in fetching user appointments',
         });
     }
 };
 
-
-const predictDisease = require('../utils/symptomChecker');
-
+// AI Symptom Checker & Disease Prediction
 const predictDiseaseController = async (req, res) => {
     try {
-        const { symptoms, userId } = req.body;
-        if (!symptoms) {
+        const userId = req.user?.id || req.body.userId;
+        const { symptoms } = req.body;
+
+        if (!symptoms || !symptoms.trim()) {
             return res.status(400).send({
                 success: false,
-                message: 'Symptoms are required',
+                message: 'Symptoms description is required',
             });
         }
+
         const prediction = predictDisease(symptoms);
 
-        // Find relevant doctors
+        // Find matching available approved doctors
         const suggestedDoctors = await User.find({
             isDoctor: true,
             status: 'approved',
-            isAvailable: true,
-            specialization: { $regex: prediction.specialist, $options: 'i' } // Case-insensitive match
-        }).select('name specialization image feesPerConsultation timings isAvailable');
+            specialization: { $regex: prediction.specialist, $options: 'i' }
+        }).select('name specialization image feesPerConsultation timings isAvailable services address phone bio');
 
-        // Save diagnosis to DB
-        const newDiagnosis = new Diagnosis({
-            userId,
-            symptoms,
-            disease: prediction.disease,
-            severity: prediction.severity,
-            specialist: prediction.specialist,
-            // Assuming we might want to save the recommended doctor in history later, but for now just returning it
-        });
-        await newDiagnosis.save();
+        // Save diagnosis history if userId is provided
+        if (userId) {
+            const newDiagnosis = new Diagnosis({
+                userId,
+                symptoms: symptoms.trim(),
+                disease: prediction.disease,
+                severity: prediction.severity,
+                specialist: prediction.specialist,
+                solution: prediction.solution || ''
+            });
+            await newDiagnosis.save();
+        }
 
         res.status(200).send({
             success: true,
-            message: 'Diagnosis Prediction Success',
+            message: 'Diagnosis prediction completed successfully',
             data: { ...prediction, suggestedDoctors },
         });
 
     } catch (error) {
-        console.log(error);
+        console.error('Error in predictDiseaseController:', error);
         res.status(500).send({
             success: false,
-            message: 'Error in Prediction',
-            error
+            message: 'Error in disease prediction',
+            error: error.message
         });
     }
 };
 
+// Get diagnosis history for a user
 const getDiagnosisHistoryController = async (req, res) => {
     try {
-        const diagnoses = await Diagnosis.find({ userId: req.body.userId });
+        const userId = req.user?.id || req.body.userId;
+        const diagnoses = await Diagnosis.find({ userId }).sort({ createdAt: -1 });
+
         res.status(200).send({
             success: true,
-            message: 'Diagnosis History Fetched Successfully',
+            message: 'Diagnosis history fetched successfully',
             data: diagnoses
         });
     } catch (error) {
-        console.log(error);
+        console.error('Error in getDiagnosisHistoryController:', error);
         res.status(500).send({
             success: false,
-            message: 'Error in Fetching Diagnosis History',
-            error
+            message: 'Error in fetching diagnosis history',
+            error: error.message
         });
     }
 };
 
+// Get user dashboard analytics / stats
 const getDashboardStatsController = async (req, res) => {
     try {
-        const userId = req.body.userId;
+        const userId = req.user?.id || req.body.userId;
         const user = await User.findById(userId);
 
         if (!user) {
             return res.status(404).send({ success: false, message: 'User not found' });
         }
 
-        const upcomingAppointmentsCount = await Appointment.countDocuments({ userId, status: 'pending' });
+        const pendingAppointmentsCount = await Appointment.countDocuments({ userId, status: 'pending' });
         const approvedAppointmentsCount = await Appointment.countDocuments({ userId, status: 'approved' });
-        const rejectedAppointmentsCount = await Appointment.countDocuments({ userId, status: 'rejected' });
+        const completedAppointmentsCount = await Appointment.countDocuments({ userId, status: 'completed' });
+        const cancelledAppointmentsCount = await Appointment.countDocuments({ userId, status: 'cancelled' });
         const aiDiagnosisCount = await Diagnosis.countDocuments({ userId });
-
-        // Earnings/Revenue calculation (Removed)
-        let totalRevenue = 0;
-        let totalEarnings = 0;
 
         res.status(200).send({
             success: true,
-            message: 'Dashboard Stats Fetched Successfully',
+            message: 'Dashboard stats fetched successfully',
             data: {
-                upcomingAppointmentsCount: upcomingAppointmentsCount + approvedAppointmentsCount,
-                pastVisitsCount: approvedAppointmentsCount,
-                aiDiagnosisCount: aiDiagnosisCount,
-                totalRevenue: totalRevenue,
-                totalEarnings: totalEarnings
+                upcomingAppointmentsCount: pendingAppointmentsCount + approvedAppointmentsCount,
+                pastVisitsCount: completedAppointmentsCount + approvedAppointmentsCount,
+                cancelledAppointmentsCount,
+                aiDiagnosisCount,
+                totalRevenue: 0,
+                totalEarnings: 0
             }
         });
     } catch (error) {
-        console.log(error);
+        console.error('Error in getDashboardStatsController:', error);
         res.status(500).send({
             success: false,
-            message: 'Error in Fetching Dashboard Stats',
-            error
+            message: 'Error in fetching dashboard statistics',
+            error: error.message
         });
     }
 };
 
+// Cancel an appointment
 const cancelAppointmentController = async (req, res) => {
     try {
         const { appointmentId } = req.body;
-        await Appointment.findByIdAndUpdate(appointmentId, { status: 'cancelled' });
+        if (!appointmentId) {
+            return res.status(400).send({ success: false, message: 'appointmentId is required' });
+        }
+
+        const updated = await Appointment.findByIdAndUpdate(appointmentId, { status: 'cancelled' }, { new: true });
+        if (!updated) {
+            return res.status(404).send({ success: false, message: 'Appointment not found' });
+        }
+
         res.status(200).send({
             success: true,
-            message: 'Appointment Cancelled Successfully'
+            message: 'Appointment cancelled successfully',
+            data: updated
         });
     } catch (error) {
-        console.log(error);
+        console.error('Error in cancelAppointmentController:', error);
         res.status(500).send({
             success: false,
-            message: 'Error In Cancel Appointment',
-            error
+            message: 'Error in cancelling appointment',
+            error: error.message
         });
     }
 };
 
+// Reschedule an appointment
 const rescheduleAppointmentController = async (req, res) => {
     try {
         const { appointmentId, date, time } = req.body;
-        // Optional: Check availability for the new slot before updating
-        await Appointment.findByIdAndUpdate(appointmentId, { date, time, status: 'pending' }); // Reset to pending if rescheduled? Or keep same if auto-approved. Let's reset to pending likely.
+        if (!appointmentId || !date || !time) {
+            return res.status(400).send({
+                success: false,
+                message: 'appointmentId, date, and time are required'
+            });
+        }
+
+        const updated = await Appointment.findByIdAndUpdate(
+            appointmentId,
+            { date, time, status: 'pending' },
+            { new: true }
+        );
+
+        if (!updated) {
+            return res.status(404).send({ success: false, message: 'Appointment not found' });
+        }
+
         res.status(200).send({
             success: true,
-            message: 'Appointment Rescheduled Successfully'
+            message: 'Appointment rescheduled successfully. Awaiting doctor confirmation.',
+            data: updated
         });
     } catch (error) {
-        console.log(error);
+        console.error('Error in rescheduleAppointmentController:', error);
         res.status(500).send({
             success: false,
-            message: 'Error In Reschedule Appointment',
-            error
+            message: 'Error in rescheduling appointment',
+            error: error.message
         });
     }
 };
 
-
-
+// Get list of public approved doctors
 const getPublicDoctorsController = async (req, res) => {
     try {
-        // Filter doctors by approved status AND availability
         const doctors = await User.find({
             isDoctor: true,
             status: 'approved'
-        });
+        }).select('-password');
+
         res.status(200).send({
             success: true,
-            message: 'Doctors Fetched Successfully',
+            message: 'Doctors fetched successfully',
             data: doctors
         });
     } catch (error) {
-        console.log(error);
+        console.error('Error in getPublicDoctorsController:', error);
         res.status(500).send({
             success: false,
-            message: 'Error fetching doctors',
-            error
+            message: 'Error fetching doctors list',
+            error: error.message
         });
     }
 };
 
+// Update doctor information publicly or by admin
 const updatePublicDoctorController = async (req, res) => {
     try {
-        // expect doctorId in body, or id
         const { _id, ...updateData } = req.body;
-        const doctor = await User.findByIdAndUpdate(_id, updateData, { new: true });
+        delete updateData.password;
+
+        const doctor = await User.findByIdAndUpdate(_id, updateData, { new: true }).select('-password');
         res.status(200).send({
             success: true,
-            message: 'Doctor Updated Successfully',
+            message: 'Doctor updated successfully',
             data: doctor
         });
     } catch (error) {
-        console.log(error);
+        console.error('Error in updatePublicDoctorController:', error);
         res.status(500).send({
             success: false,
-            message: 'Error updating doctor',
-            error
+            message: 'Error updating doctor profile',
+            error: error.message
         });
     }
 };
 
+// Update user profile picture and bio
 const updateUserProfileController = async (req, res) => {
     try {
-        const { userId, image } = req.body;
-        const user = await User.findByIdAndUpdate(userId, { image }, { new: true });
-        user.password = undefined;
+        const userId = req.user?.id || req.body.userId;
+        const { image, name, phone, bio, address } = req.body;
+
+        const updateFields = {};
+        if (image !== undefined) updateFields.image = image;
+        if (name) updateFields.name = name.trim();
+        if (phone !== undefined) updateFields.phone = phone;
+        if (bio !== undefined) updateFields.bio = bio;
+        if (address !== undefined) updateFields.address = address;
+
+        const user = await User.findByIdAndUpdate(userId, updateFields, { new: true }).select('-password');
+        if (!user) {
+            return res.status(404).send({ success: false, message: 'User not found' });
+        }
+
+        const userData = user.toObject();
+        userData.isAdmin = userData.role === 'admin' || !!userData.isAdmin;
+        userData.isDoctor = userData.role === 'doctor' || !!userData.isDoctor;
+
         res.status(200).send({
             success: true,
-            message: 'Profile Updated Successfully',
-            data: user
+            message: 'Profile updated successfully',
+            data: userData
         });
     } catch (error) {
-        console.log(error);
+        console.error('Error in updateUserProfileController:', error);
         res.status(500).send({
             success: false,
-            message: 'Error Updating Profile',
-            error
+            message: 'Error updating profile',
+            error: error.message
         });
     }
 };
@@ -484,10 +590,11 @@ const createRazorpayOrderController = async (req, res) => {
     try {
         const { amount, appointmentId } = req.body;
 
-        if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
-            return res.status(500).send({
+        if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET || process.env.RAZORPAY_KEY_ID === 'rzp_test_YOUR_KEY_ID') {
+            return res.status(200).send({
                 success: false,
-                message: 'Razorpay keys are missing in environment variables'
+                isMock: true,
+                message: 'Razorpay keys are in demo/test mode. You can test card payments via Stripe or mock verification.'
             });
         }
 
@@ -497,15 +604,16 @@ const createRazorpayOrderController = async (req, res) => {
         });
 
         const options = {
-            amount: amount * 100, // amount in the smallest currency unit (paise)
+            amount: Math.round(Number(amount) * 100),
             currency: "INR",
-            receipt: `receipt_${appointmentId}`,
+            receipt: `rcpt_${appointmentId || Date.now()}`,
         };
 
         const order = await razorpay.orders.create(options);
 
-        // Update appointment with order ID
-        await Appointment.findByIdAndUpdate(appointmentId, { razorpay_order_id: order.id });
+        if (appointmentId) {
+            await Appointment.findByIdAndUpdate(appointmentId, { razorpay_order_id: order.id });
+        }
 
         res.status(200).send({
             success: true,
@@ -516,7 +624,7 @@ const createRazorpayOrderController = async (req, res) => {
         res.status(500).send({
             success: false,
             message: 'Error in creating Razorpay order',
-            error
+            error: error.message
         });
     }
 };
@@ -530,6 +638,21 @@ const verifyPaymentController = async (req, res) => {
             appointmentId
         } = req.body;
 
+        if (!process.env.RAZORPAY_KEY_SECRET || process.env.RAZORPAY_KEY_SECRET === 'YOUR_KEY_SECRET') {
+            // Mock confirmation for testing if secret key is default placeholder
+            if (appointmentId) {
+                await Appointment.findByIdAndUpdate(appointmentId, {
+                    razorpay_payment_id: razorpay_payment_id || 'mock_pay_id',
+                    paymentStatus: 'paid',
+                    status: 'approved'
+                });
+            }
+            return res.status(200).send({
+                success: true,
+                message: "Payment verified successfully (Demo Mode)"
+            });
+        }
+
         const sign = razorpay_order_id + "|" + razorpay_payment_id;
         const expectedSign = crypto
             .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
@@ -537,13 +660,11 @@ const verifyPaymentController = async (req, res) => {
             .digest("hex");
 
         if (razorpay_signature === expectedSign) {
-            // Payment verified
             await Appointment.findByIdAndUpdate(appointmentId, {
                 razorpay_payment_id,
                 razorpay_signature,
                 paymentStatus: 'paid',
-                status: 'approved' // Automatically approve if paid? Or keep as pending for doctor approval.
-                // Based on user prompt "Booking Confirmed", I'll set it to approved/booked.
+                status: 'approved'
             });
 
             return res.status(200).send({
@@ -560,8 +681,8 @@ const verifyPaymentController = async (req, res) => {
         console.error('Error verifying payment:', error);
         res.status(500).send({
             success: false,
-            message: "Internal Server Error during verification",
-            error
+            message: "Internal server error during payment verification",
+            error: error.message
         });
     }
 };
@@ -585,5 +706,3 @@ module.exports = {
     createRazorpayOrderController,
     verifyPaymentController
 };
-
-
