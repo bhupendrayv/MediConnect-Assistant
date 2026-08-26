@@ -1,0 +1,33 @@
+services:
+  - type: web
+    name: mediconnect-backend
+    runtime: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install
+    startCommand: node server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGO_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: PORT
+        value: 8082
+
+  - type: static
+    name: mediconnect-frontend
+    runtime: static
+    plan: free
+    rootDir: client
+    buildCommand: npm install && npm run build
+    publishDir: dist
+    envVars:
+      - key: VITE_SERVER_URL
+        fromService:
+          type: web
+          name: mediconnect-backend
+          property: host
