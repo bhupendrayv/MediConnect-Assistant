@@ -5,24 +5,11 @@ import axios from 'axios';
 // Check if we are in production (you can also use import.meta.env.PROD)
 const isProduction = import.meta.env.MODE === 'production';
 
-// Define the Base URL
-// Priority: 1. VITE_SERVER_URL, 2. Production Fallback, 3. Localhost
-let baseURL = import.meta.env.VITE_SERVER_URL;
+let baseURL = import.meta.env.VITE_SERVER_URL || '/api/v1';
 
-if (!baseURL) {
-    if (isProduction) {
-        // Fallback for production if environment variable is missing
-        baseURL = 'https://mediconnects-server.onrender.com/api/v1';
-        console.warn('WARNING: VITE_SERVER_URL is not defined. Using fallback production URL:', baseURL);
-    } else {
-        baseURL = 'http://localhost:8082/api/v1';
-    }
-}
-
-// Ensure local development always uses relative paths (Vite proxy)
-// This handles localhost, 127.0.0.1, and local network IPs (e.g. 10.x.x.x)
-if (!isProduction) {
-    baseURL = '/api/v1';
+// If running in development and no server URL is provided, use the local proxy
+if (import.meta.env.DEV && !import.meta.env.VITE_SERVER_URL) {
+    baseURL = 'http://localhost:8082/api/v1';
 }
 
 // baseURL is set above based on environment
