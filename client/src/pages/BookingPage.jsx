@@ -153,9 +153,9 @@ const BookingPage = () => {
                 return message.error("User session not found. Please refresh the page and try again.");
             }
 
-            // Block admin from booking appointments
-            if (user.isAdmin || user.role === 'admin') {
-                return message.error("Admins cannot book appointments. Please use a patient account.");
+            // Block Doctor and Admin from booking appointments
+            if (user.isAdmin || user.role === 'admin' || user.isDoctor || user.role === 'doctor') {
+                return message.error("Doctors and Admins are not allowed to book appointments. Please log in with a Patient account.");
             }
 
             if (!selectedDepartment) {

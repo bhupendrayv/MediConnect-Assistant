@@ -52,7 +52,7 @@ const DoctorAppointments = () => {
         try {
             const res = await api.get('/user/getAllDoctors');
             if (res.data.success) {
-                setAllDoctors(res.data.data.filter(d => String(d._id) !== String(user?._id)));
+                setAllDoctors(res.data.data);
             }
         } catch (error) {
             console.error('Error loading doctors for transfer:', error);
