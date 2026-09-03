@@ -87,9 +87,18 @@ const DoctorLogin = () => {
                         rules={[{ required: true, message: 'Please enter your registered email' }]}
                     >
                         <Input
-                            prefix={<FiMail className="text-slate-500 mr-2" />}
+                            prefix={<FiMail className="text-slate-400 mr-2" />}
                             placeholder="doctor@hospital.com"
-                            className="h-14 rounded-2xl border-slate-700 bg-slate-900/80 text-slate-200 placeholder:text-slate-600 font-medium px-4 hover:border-blue-500 focus:border-blue-500"
+                            className="h-14 rounded-2xl border-slate-700 bg-slate-900/80 hover:border-blue-500 focus-within:border-blue-500"
+                            style={{ backgroundColor: 'rgba(15,23,42,0.8)', borderColor: '#334155' }}
+                            styles={{
+                                input: {
+                                    background: 'transparent',
+                                    color: '#e2e8f0',
+                                    fontWeight: 500,
+                                },
+                                prefix: { color: '#64748b' },
+                            }}
                         />
                     </Form.Item>
 
@@ -99,9 +108,18 @@ const DoctorLogin = () => {
                         rules={[{ required: true, message: 'Please enter your password' }]}
                     >
                         <Input.Password
-                            prefix={<FiLock className="text-slate-500 mr-2" />}
+                            prefix={<FiLock className="text-slate-400 mr-2" />}
                             placeholder="••••••••"
-                            className="h-14 rounded-2xl border-slate-700 bg-slate-900/80 text-slate-200 placeholder:text-slate-600 font-medium px-4 hover:border-blue-500 focus:border-blue-500"
+                            className="h-14 rounded-2xl border-slate-700 bg-slate-900/80 hover:border-blue-500 focus-within:border-blue-500"
+                            style={{ backgroundColor: 'rgba(15,23,42,0.8)', borderColor: '#334155' }}
+                            styles={{
+                                input: {
+                                    background: 'transparent',
+                                    color: '#e2e8f0',
+                                    fontWeight: 500,
+                                },
+                                prefix: { color: '#64748b' },
+                            }}
                         />
                     </Form.Item>
 

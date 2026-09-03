@@ -65,9 +65,18 @@ const AdminLogin = () => {
                         rules={[{ required: true, message: 'Please enter your admin email' }]}
                     >
                         <Input
-                            prefix={<FiMail className="text-slate-500 mr-2" />}
+                            prefix={<FiMail className="text-slate-400 mr-2" />}
                             placeholder="admin@mediconnect.com"
-                            className="h-14 rounded-2xl border-slate-800 bg-slate-950/70 text-slate-200 placeholder:text-slate-600 font-medium px-4 hover:border-primary focus:border-primary"
+                            className="h-14 rounded-2xl border-slate-800 bg-slate-950/70 hover:border-primary focus-within:border-primary"
+                            style={{ backgroundColor: 'rgba(2,6,23,0.7)', borderColor: '#1e293b' }}
+                            styles={{
+                                input: {
+                                    background: 'transparent',
+                                    color: '#e2e8f0',
+                                    fontWeight: 500,
+                                },
+                                prefix: { color: '#64748b' },
+                            }}
                         />
                     </Form.Item>
 
@@ -77,9 +86,18 @@ const AdminLogin = () => {
                         rules={[{ required: true, message: 'Please enter your security password' }]}
                     >
                         <Input.Password
-                            prefix={<FiLock className="text-slate-500 mr-2" />}
+                            prefix={<FiLock className="text-slate-400 mr-2" />}
                             placeholder="••••••••"
-                            className="h-14 rounded-2xl border-slate-800 bg-slate-950/70 text-slate-200 placeholder:text-slate-600 font-medium px-4 hover:border-primary focus:border-primary"
+                            className="h-14 rounded-2xl border-slate-800 bg-slate-950/70 hover:border-primary focus-within:border-primary"
+                            style={{ backgroundColor: 'rgba(2,6,23,0.7)', borderColor: '#1e293b' }}
+                            styles={{
+                                input: {
+                                    background: 'transparent',
+                                    color: '#e2e8f0',
+                                    fontWeight: 500,
+                                },
+                                prefix: { color: '#64748b' },
+                            }}
                         />
                     </Form.Item>
 
