@@ -32,14 +32,17 @@ const Layout = ({ children }) => {
         { name: 'Payments', path: '/payments', icon: <FiCreditCard /> },
     ];
 
-    const menuToBeRendered = user?.isAdmin ? [
+    const adminMenu = [
         { name: 'Dashboard', path: '/dashboard', icon: <FiGrid /> },
-        { name: 'Verify Code', path: '/verify-appointment', icon: <FiUserCheck /> },
-        { name: 'Blood Bank', path: '/blood-bank', icon: <FiDroplet style={{ color: '#ef4444' }} /> },
         { name: 'Doctors', path: '/admin/doctors', icon: <FiUserCheck /> },
-        { name: 'Users', path: '/admin/users', icon: <FiUser /> },
+        { name: 'Patients', path: '/admin/users', icon: <FiUser /> },
+        { name: 'Appointments', path: '/admin/appointments', icon: <FiCalendar /> },
+        { name: 'Blood Requests', path: '/admin/blood-requests', icon: <FiDroplet style={{ color: '#ef4444' }} /> },
+        { name: 'Broadcast', path: '/admin/broadcast', icon: <FiBell /> },
         { name: 'Site Settings', path: '/admin/settings', icon: <FiSettings /> },
-    ] : user?.isDoctor ? doctorMenu : userMenu;
+    ];
+
+    const menuToBeRendered = user?.isAdmin ? adminMenu : user?.isDoctor ? doctorMenu : userMenu;
 
     const handleLogout = () => {
         localStorage.clear();

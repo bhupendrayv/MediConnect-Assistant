@@ -17,10 +17,11 @@ import AIHelper from './pages/AIHelper';
 import VerifyAppointment from './pages/VerifyAppointment';
 import BloodBank from './pages/BloodBank';
 import Payments from './pages/Payments';
-import { FiActivity } from 'react-icons/fi';
-
 import LandingPage from './pages/LandingPage';
 import SiteSettings from './pages/admin/SiteSettings';
+import AdminAppointments from './pages/admin/AdminAppointments';
+import AdminBloodRequests from './pages/admin/AdminBloodRequests';
+import AdminBroadcast from './pages/admin/AdminBroadcast';
 
 function App() {
     const { loading } = useSelector(state => state.alerts);
@@ -76,6 +77,21 @@ function App() {
                 <Route path="/admin/doctors" element={
                     <ProtectedRoute>
                         <Doctors />
+                    </ProtectedRoute>
+                } />
+                <Route path="/admin/appointments" element={
+                    <ProtectedRoute>
+                        <AdminAppointments />
+                    </ProtectedRoute>
+                } />
+                <Route path="/admin/blood-requests" element={
+                    <ProtectedRoute>
+                        <AdminBloodRequests />
+                    </ProtectedRoute>
+                } />
+                <Route path="/admin/broadcast" element={
+                    <ProtectedRoute>
+                        <AdminBroadcast />
                     </ProtectedRoute>
                 } />
                 <Route path="/admin/settings" element={
