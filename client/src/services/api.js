@@ -12,7 +12,21 @@ const api = axios.create({
     withCredentials: true,
 });
 
-// Add response interceptor for better error handling (optional but good practice)
+// Add request interceptor to automatically attach JWT token
+api.interceptors.request.use(
+    (config) => {
+        const token = localStorage.getItem('token');
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+    },
+    (error) => {
+        return Promise.reject(error);
+    }
+);
+
+// Add response interceptor for better error handling
 api.interceptors.response.use(
     (response) => response,
     (error) => {

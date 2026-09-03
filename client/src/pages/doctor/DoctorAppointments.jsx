@@ -39,11 +39,7 @@ const DoctorAppointments = () => {
 
     const getAppointments = async () => {
         try {
-            const res = await api.get('/doctor/doctor-appointments', {
-                headers: {
-                    Authorization: "Bearer " + localStorage.getItem('token'),
-                },
-            });
+            const res = await api.get('/doctor/doctor-appointments');
             if (res.data.success) {
                 setAppointments(res.data.data);
             }
@@ -65,18 +61,15 @@ const DoctorAppointments = () => {
 
     const handleStatus = async (record, status) => {
         try {
-            const res = await api.post('/doctor/update-status', { appointmentsId: record._id, status }, {
-                headers: {
-                    Authorization: "Bearer " + localStorage.getItem('token'),
-                },
-            });
+            const res = await api.post('/doctor/update-status', { appointmentsId: record._id, status });
             if (res.data.success) {
                 message.success(res.data.message);
                 getAppointments();
             }
         } catch (error) {
             console.log(error);
-            message.error('Something went wrong');
+            const msg = error.response?.data?.message || 'Something went wrong';
+            message.error(msg);
         }
     };
 
@@ -110,7 +103,8 @@ const DoctorAppointments = () => {
         } catch (error) {
             setCompleteLoading(false);
             console.error('Complete checkup error:', error);
-            message.error('Failed to complete checkup');
+            const msg = error.response?.data?.message || 'Failed to complete checkup';
+            message.error(msg);
         }
     };
 
@@ -143,7 +137,8 @@ const DoctorAppointments = () => {
         } catch (error) {
             setTransferLoading(false);
             console.error('Transfer error:', error);
-            message.error('Failed to transfer appointment');
+            const msg = error.response?.data?.message || 'Failed to transfer appointment';
+            message.error(msg);
         }
     };
 
@@ -263,6 +258,7 @@ const DoctorAppointments = () => {
                         {appointments.length} Consultations in Queue
                     </div>
                 </div>
+
                 <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 overflow-hidden">
                     <Table columns={columns} dataSource={appointments} rowKey="_id" pagination={{ pageSize: 8 }} />
                 </div>
