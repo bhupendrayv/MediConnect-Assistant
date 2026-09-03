@@ -18,7 +18,8 @@ const Login = () => {
             if (res.data.success) {
                 localStorage.setItem('token', res.data.token);
                 message.success('Welcome back!');
-                navigate('/dashboard');
+                // Navigate directly to dashboard and reload state
+                window.location.href = '/dashboard';
             } else {
                 // Show the exact message from the server (e.g., "Incorrect password", "No account found")
                 message.error(res.data.message || 'Login failed. Please check your credentials.');
