@@ -5,6 +5,7 @@ const {
     getDoctorByIdController,
     doctorAppointmentsController,
     updateStatusController,
+    transferAppointmentController,
     toggleAvailabilityController
 } = require('../controllers/doctorController');
 const authMiddleware = require('../middlewares/authMiddleware');
@@ -26,6 +27,9 @@ router.get('/doctor-appointments', authMiddleware, doctorAppointmentsController)
 
 // POST UPDATE STATUS
 router.post('/update-status', authMiddleware, updateStatusController);
+
+// POST TRANSFER APPOINTMENT
+router.post('/transfer-appointment', authMiddleware, transferAppointmentController);
 
 // POST TOGGLE AVAILABILITY
 router.post('/toggle-availability', authMiddleware, toggleAvailabilityController);

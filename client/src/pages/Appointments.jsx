@@ -208,11 +208,25 @@ const Appointments = () => {
             title: 'Status',
             dataIndex: 'status',
             key: 'status',
-            render: (status) => {
+            render: (status, record) => {
                 let color = 'gold';
-                if (status === 'approved') color = 'success';
+                let label = status;
+                if (status === 'approved') color = 'processing';
+                if (status === 'completed') {
+                    color = 'success';
+                    label = 'Checkup Completed';
+                }
                 if (status === 'rejected' || status === 'cancelled') color = 'error';
-                return <Tag color={color} className="rounded-full px-3 py-0.5 font-black uppercase italic text-[9px] border-2 shadow-sm">{status}</Tag>
+                return (
+                    <div>
+                        <Tag color={color} className="rounded-full px-3 py-0.5 font-black uppercase italic text-[9px] border-2 shadow-sm">{label}</Tag>
+                        {record.transferHistory && record.transferHistory.length > 0 && (
+                            <div className="text-[9px] font-bold text-purple-600 mt-1">
+                                Transferred ({record.transferHistory.length})
+                            </div>
+                        )}
+                    </div>
+                );
             }
         },
         {
@@ -226,7 +240,7 @@ const Appointments = () => {
                         }}
                         className="px-4 py-1.5 bg-slate-800 text-white rounded-lg font-black uppercase text-[9px] tracking-widest hover:bg-slate-900 transition-all shadow-sm flex items-center gap-2"
                     >
-                        <FiFileText /> Receipt
+                        <FiFileText /> Receipt / Records
                     </button>
                     {record.paymentStatus !== 'paid' && record.status !== 'cancelled' && (
                         <button

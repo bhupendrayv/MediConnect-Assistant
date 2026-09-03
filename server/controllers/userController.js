@@ -275,6 +275,54 @@ const processDummyPaymentController = async (req, res) => {
     }
 };
 
+// Search appointments and medical records by Mobile Number or Reference
+const searchAppointmentsByMobileController = async (req, res) => {
+    try {
+        const { mobileNumber, query } = req.body;
+        const searchTerm = (mobileNumber || query || '').trim();
+        if (!searchTerm) {
+            return res.status(400).send({
+                success: false,
+                message: 'Please provide a mobile number or search reference'
+            });
+        }
+
+        // Extract raw digits for mobile matching
+        const cleanDigits = searchTerm.replace(/\D/g, '');
+
+        let appointments = [];
+        if (cleanDigits.length >= 4) {
+            appointments = await Appointment.find({
+                $or: [
+                    { 'userInfo.mobileNumber': { $regex: cleanDigits, $options: 'i' } },
+                    { appointmentCode: { $regex: searchTerm, $options: 'i' } },
+                    { transactionId: { $regex: searchTerm, $options: 'i' } }
+                ]
+            }).sort({ createdAt: -1 });
+        } else {
+            appointments = await Appointment.find({
+                $or: [
+                    { appointmentCode: { $regex: searchTerm, $options: 'i' } },
+                    { transactionId: { $regex: searchTerm, $options: 'i' } }
+                ]
+            }).sort({ createdAt: -1 });
+        }
+
+        res.status(200).send({
+            success: true,
+            message: `Found ${appointments.length} record(s)`,
+            data: appointments
+        });
+    } catch (error) {
+        console.error('Error in searchAppointmentsByMobileController:', error);
+        res.status(500).send({
+            success: false,
+            message: 'Error searching medical records',
+            error: error.message
+        });
+    }
+};
+
 // Check appointment by appointmentCode
 const checkAppointmentController = async (req, res) => {
     try {
@@ -753,5 +801,6 @@ module.exports = {
     updateUserProfileController,
     createRazorpayOrderController,
     verifyPaymentController,
-    processDummyPaymentController
+    processDummyPaymentController,
+    searchAppointmentsByMobileController
 };

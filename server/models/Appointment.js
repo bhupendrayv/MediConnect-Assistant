@@ -78,7 +78,30 @@ const appointmentSchema = new mongoose.Schema({
         type: String,
         enum: ['pending', 'paid', 'failed'],
         default: 'pending'
-    }
+    },
+    doctorNotes: {
+        type: String,
+        default: ''
+    },
+    prescription: {
+        type: String,
+        default: ''
+    },
+    recommendations: {
+        type: String,
+        default: ''
+    },
+    prescribedAt: {
+        type: Date
+    },
+    transferHistory: [{
+        fromDoctorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        fromDoctorName: { type: String },
+        toDoctorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        toDoctorName: { type: String },
+        reason: { type: String, default: '' },
+        transferredAt: { type: Date, default: Date.now }
+    }]
 }, { timestamps: true });
 
 const Appointment = mongoose.model('Appointment', appointmentSchema);

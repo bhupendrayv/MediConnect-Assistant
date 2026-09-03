@@ -135,7 +135,7 @@ const doctorAppointmentsController = async (req, res) => {
 // Update appointment status (approved, rejected, completed, cancelled)
 const updateStatusController = async (req, res) => {
     try {
-        const { appointmentsId, status } = req.body;
+        const { appointmentsId, status, doctorNotes, prescription, recommendations } = req.body;
         if (!appointmentsId || !status) {
             return res.status(400).send({
                 success: false,
@@ -143,9 +143,17 @@ const updateStatusController = async (req, res) => {
             });
         }
 
+        const updateData = { status };
+        if (doctorNotes !== undefined) updateData.doctorNotes = doctorNotes;
+        if (prescription !== undefined) updateData.prescription = prescription;
+        if (recommendations !== undefined) updateData.recommendations = recommendations;
+        if (status === 'completed' || doctorNotes || prescription || recommendations) {
+            updateData.prescribedAt = new Date();
+        }
+
         const appointment = await Appointment.findByIdAndUpdate(
             appointmentsId,
-            { status },
+            updateData,
             { new: true }
         );
 
@@ -161,9 +169,10 @@ const updateStatusController = async (req, res) => {
             const user = await User.findById(appointment.userId);
             if (user) {
                 if (!user.unseenNotifications) user.unseenNotifications = [];
+                const statusLabel = status === 'completed' ? 'Checkup Completed' : status;
                 user.unseenNotifications.push({
                     type: 'appointment-status-updated',
-                    message: `Your appointment with Dr. ${appointment.doctorInfo?.name || 'Specialist'} has been ${status}`,
+                    message: `Your appointment with Dr. ${appointment.doctorInfo?.name || 'Specialist'} status updated to: ${statusLabel}`,
                     data: {
                         appointmentId: appointment._id,
                         appointmentCode: appointment.appointmentCode,
@@ -178,7 +187,7 @@ const updateStatusController = async (req, res) => {
 
         res.status(200).send({
             success: true,
-            message: `Appointment status updated to ${status}`,
+            message: `Appointment status updated to ${status === 'completed' ? 'Checkup Completed' : status}`,
             data: appointment
         });
     } catch (error) {
@@ -187,6 +196,101 @@ const updateStatusController = async (req, res) => {
             success: false,
             error: error.message,
             message: 'Error updating appointment status',
+        });
+    }
+};
+
+// Transfer appointment to another doctor
+const transferAppointmentController = async (req, res) => {
+    try {
+        const { appointmentId, targetDoctorId, reason } = req.body;
+        const currentDoctorUserId = req.user?.id;
+
+        if (!appointmentId || !targetDoctorId) {
+            return res.status(400).send({
+                success: false,
+                message: 'Appointment ID and Target Doctor ID are required'
+            });
+        }
+
+        const appointment = await Appointment.findById(appointmentId);
+        if (!appointment) {
+            return res.status(404).send({
+                success: false,
+                message: 'Appointment not found'
+            });
+        }
+
+        const targetDoctor = await User.findById(targetDoctorId);
+        if (!targetDoctor) {
+            return res.status(404).send({
+                success: false,
+                message: 'Target doctor not found'
+            });
+        }
+
+        const fromDoctorName = appointment.doctorInfo?.name || 'Previous Doctor';
+        const fromDoctorId = appointment.doctorId;
+
+        // Push transfer log
+        if (!appointment.transferHistory) appointment.transferHistory = [];
+        appointment.transferHistory.push({
+            fromDoctorId,
+            fromDoctorName: fromDoctorName.toLowerCase().startsWith('dr') ? fromDoctorName : `Dr. ${fromDoctorName}`,
+            toDoctorId: targetDoctor._id,
+            toDoctorName: targetDoctor.name?.toLowerCase().startsWith('dr') ? targetDoctor.name : `Dr. ${targetDoctor.name}`,
+            reason: reason || 'Patient referred for specialized consultation',
+            transferredAt: new Date()
+        });
+
+        // Re-assign doctor
+        appointment.doctorId = targetDoctor._id;
+        appointment.doctorInfo = {
+            name: targetDoctor.name,
+            specialization: targetDoctor.specialization || 'Specialist',
+            feesPerConsultation: targetDoctor.feesPerConsultation || appointment.doctorInfo?.feesPerConsultation || 500
+        };
+
+        await appointment.save();
+
+        // Notify new doctor
+        if (!targetDoctor.unseenNotifications) targetDoctor.unseenNotifications = [];
+        targetDoctor.unseenNotifications.push({
+            type: 'appointment-transferred',
+            message: `Appointment (${appointment.appointmentCode}) transferred to you from ${fromDoctorName}. Note: ${reason || 'N/A'}`,
+            data: { appointmentId: appointment._id, appointmentCode: appointment.appointmentCode },
+            onClickPath: '/doctor-appointments',
+            createdAt: new Date()
+        });
+        await targetDoctor.save();
+
+        // Notify patient
+        if (appointment.userId) {
+            const patientUser = await User.findById(appointment.userId);
+            if (patientUser) {
+                if (!patientUser.unseenNotifications) patientUser.unseenNotifications = [];
+                patientUser.unseenNotifications.push({
+                    type: 'appointment-transferred',
+                    message: `Your appointment (${appointment.appointmentCode}) has been transferred to Dr. ${targetDoctor.name} (${targetDoctor.specialization || 'Specialist'}).`,
+                    data: { appointmentId: appointment._id, appointmentCode: appointment.appointmentCode },
+                    onClickPath: '/appointments',
+                    createdAt: new Date()
+                });
+                await patientUser.save();
+            }
+        }
+
+        res.status(200).send({
+            success: true,
+            message: `Appointment successfully transferred to Dr. ${targetDoctor.name}`,
+            data: appointment
+        });
+    } catch (error) {
+        console.error('Error in transferAppointmentController:', error);
+        res.status(500).send({
+            success: false,
+            message: 'Error transferring appointment',
+            error: error.message
         });
     }
 };
@@ -228,5 +332,6 @@ module.exports = {
     getDoctorByIdController,
     doctorAppointmentsController,
     updateStatusController,
+    transferAppointmentController,
     toggleAvailabilityController,
 };

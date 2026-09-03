@@ -2,10 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../../components/layout/Layout';
-import axios from 'axios';
+import api from '../../services/api';
 import dayjs from 'dayjs';
 import customParseFormat from 'dayjs/plugin/customParseFormat';
-import { Table, message, Tag } from 'antd';
+import { Table, message, Tag, Modal, Input, Select } from 'antd';
+import { FiShare2, FiCheckCircle, FiFileText } from 'react-icons/fi';
 
 dayjs.extend(customParseFormat);
 
@@ -13,6 +14,22 @@ const DoctorAppointments = () => {
     const { user } = useSelector(state => state.user);
     const navigate = useNavigate();
     const [appointments, setAppointments] = useState([]);
+    const [allDoctors, setAllDoctors] = useState([]);
+
+    // Transfer State
+    const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+    const [transferAppointment, setTransferAppointment] = useState(null);
+    const [targetDoctorId, setTargetDoctorId] = useState('');
+    const [transferReason, setTransferReason] = useState('');
+    const [transferLoading, setTransferLoading] = useState(false);
+
+    // Completion / Prescription State
+    const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false);
+    const [completeAppointment, setCompleteAppointment] = useState(null);
+    const [doctorNotes, setDoctorNotes] = useState('');
+    const [prescription, setPrescription] = useState('');
+    const [recommendations, setRecommendations] = useState('');
+    const [completeLoading, setCompleteLoading] = useState(false);
 
     useEffect(() => {
         if (user && !user.isDoctor) {
@@ -22,7 +39,7 @@ const DoctorAppointments = () => {
 
     const getAppointments = async () => {
         try {
-            const res = await axios.get('/doctor/doctor-appointments', {
+            const res = await api.get('/doctor/doctor-appointments', {
                 headers: {
                     Authorization: "Bearer " + localStorage.getItem('token'),
                 },
@@ -35,9 +52,20 @@ const DoctorAppointments = () => {
         }
     };
 
+    const getAllDoctors = async () => {
+        try {
+            const res = await api.get('/user/getAllDoctors');
+            if (res.data.success) {
+                setAllDoctors(res.data.data.filter(d => String(d._id) !== String(user?._id)));
+            }
+        } catch (error) {
+            console.error('Error loading doctors for transfer:', error);
+        }
+    };
+
     const handleStatus = async (record, status) => {
         try {
-            const res = await axios.post('/doctor/update-status', { appointmentsId: record._id, status }, {
+            const res = await api.post('/doctor/update-status', { appointmentsId: record._id, status }, {
                 headers: {
                     Authorization: "Bearer " + localStorage.getItem('token'),
                 },
@@ -52,55 +80,110 @@ const DoctorAppointments = () => {
         }
     };
 
+    const handleOpenCompleteModal = (record) => {
+        setCompleteAppointment(record);
+        setDoctorNotes(record.doctorNotes || '');
+        setPrescription(record.prescription || '');
+        setRecommendations(record.recommendations || '');
+        setIsCompleteModalOpen(true);
+    };
+
+    const handleSaveCompleteCheckup = async () => {
+        if (!completeAppointment) return;
+        try {
+            setCompleteLoading(true);
+            const res = await api.post('/doctor/update-status', {
+                appointmentsId: completeAppointment._id,
+                status: 'completed',
+                doctorNotes,
+                prescription,
+                recommendations
+            });
+            setCompleteLoading(false);
+            if (res.data.success) {
+                message.success('Checkup completed & prescription saved!');
+                setIsCompleteModalOpen(false);
+                getAppointments();
+            } else {
+                message.error(res.data.message || 'Failed to complete checkup');
+            }
+        } catch (error) {
+            setCompleteLoading(false);
+            console.error('Complete checkup error:', error);
+            message.error('Failed to complete checkup');
+        }
+    };
+
+    const handleOpenTransferModal = (record) => {
+        setTransferAppointment(record);
+        setTargetDoctorId('');
+        setTransferReason('');
+        setIsTransferModalOpen(true);
+    };
+
+    const handleExecuteTransfer = async () => {
+        if (!transferAppointment || !targetDoctorId) {
+            return message.error('Please select a target doctor to transfer the appointment.');
+        }
+        try {
+            setTransferLoading(true);
+            const res = await api.post('/doctor/transfer-appointment', {
+                appointmentId: transferAppointment._id,
+                targetDoctorId,
+                reason: transferReason
+            });
+            setTransferLoading(false);
+            if (res.data.success) {
+                message.success(res.data.message);
+                setIsTransferModalOpen(false);
+                getAppointments();
+            } else {
+                message.error(res.data.message || 'Transfer failed');
+            }
+        } catch (error) {
+            setTransferLoading(false);
+            console.error('Transfer error:', error);
+            message.error('Failed to transfer appointment');
+        }
+    };
+
     useEffect(() => {
         getAppointments();
+        getAllDoctors();
     }, []);
 
     const columns = [
         {
-            title: 'Code & Schedule',
-            dataIndex: 'appointmentCode',
-            render: (code, record) => (
-                <div>
-                    <span className="font-mono font-black text-xs text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200 inline-block">
-                        {code || 'N/A'}
-                    </span>
-                    <div className="text-[11px] text-slate-500 mt-1 font-semibold">
-                        {record.date} ({record.time})
-                    </div>
-                </div>
-            )
-        },
-        {
             title: 'Patient Profile',
-            dataIndex: 'userInfo',
-            render: (info) => (
-                <div>
-                    <div className="font-black text-slate-800 text-sm">{info?.name || 'Patient'}</div>
-                    <div className="text-xs text-slate-500 font-medium">
-                        {info?.gender ? `${info.gender}, ` : ''}{info?.age ? `${info.age} yrs` : ''}
+            dataIndex: 'name',
+            render: (_, record) => {
+                const info = record.userInfo || {};
+                return (
+                    <div>
+                        <div className="font-black text-slate-800 text-sm">{info.name || 'Patient'}</div>
+                        <div className="text-[11px] font-bold text-emerald-600">📱 Mobile: {info.mobileNumber || 'N/A'}</div>
+                        <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">{info.age ? `${info.age} Yrs` : ''} • {info.gender || ''}</div>
                     </div>
-                    {info?.mobileNumber && (
-                        <div className="text-[11px] text-blue-600 font-bold mt-0.5">
-                            📞 {info.mobileNumber}
-                        </div>
-                    )}
+                );
+            }
+        },
+        {
+            title: 'Code & Date',
+            key: 'code_date',
+            render: (_, record) => (
+                <div>
+                    <Tag color="processing" className="font-black italic uppercase text-[10px] rounded-lg">{record.appointmentCode}</Tag>
+                    <div className="text-xs font-bold text-slate-700 mt-1">📅 {record.date}</div>
+                    <div className="text-[10px] text-slate-400 font-bold uppercase">⏰ {record.time}</div>
                 </div>
             )
         },
         {
-            title: 'Clinical Symptoms & Address',
+            title: 'Medical Problem',
             dataIndex: 'userInfo',
             render: (info) => (
-                <div className="max-w-xs">
-                    <div className="text-xs font-bold text-slate-700 bg-slate-50 p-2 rounded-xl border border-slate-100">
-                        {info?.problem || 'Standard Consultation'}
-                    </div>
-                    {info?.address && (
-                        <div className="text-[10px] text-slate-400 mt-1 truncate">
-                            📍 {info.address}
-                        </div>
-                    )}
+                <div className="max-w-[180px]">
+                    <span className="text-slate-700 font-medium text-xs block leading-tight">{info?.problem || 'General Consultation'}</span>
                 </div>
             )
         },
@@ -108,12 +191,10 @@ const DoctorAppointments = () => {
             title: 'Selected Services',
             dataIndex: 'selectedServices',
             render: (services) => (
-                <div className="flex flex-wrap gap-1 max-w-[200px]">
+                <div className="flex flex-wrap gap-1 max-w-[180px]">
                     {services && services.length > 0 ? (
                         services.map((svc, i) => (
-                            <Tag color="cyan" key={i} className="font-bold text-[10px] rounded-lg">
-                                {svc.name} (₹{svc.price})
-                            </Tag>
+                            <Tag color="cyan" key={i} className="font-bold text-[10px] rounded-lg">{svc.name} (₹{svc.price})</Tag>
                         ))
                     ) : (
                         <span className="text-gray-400 text-xs">General Checkup</span>
@@ -122,23 +203,23 @@ const DoctorAppointments = () => {
             )
         },
         {
-            title: 'Status & Payment',
+            title: 'Status & Transfer',
             dataIndex: 'status',
             render: (status, record) => {
                 let color = 'gold';
-                if (status === 'approved' || status === 'completed') color = 'green';
+                let label = status;
+                if (status === 'approved') color = 'blue';
+                if (status === 'completed') { color = 'green'; label = 'Checkup Completed'; }
                 if (status === 'cancelled' || status === 'reject' || status === 'rejected') color = 'volcano';
                 return (
                     <div>
-                        <Tag color={color} className="font-black text-[10px] uppercase px-2.5 py-0.5 rounded-full">
-                            {status}
-                        </Tag>
+                        <Tag color={color} className="font-black text-[10px] uppercase px-2.5 py-0.5 rounded-full">{label}</Tag>
                         <div className="text-[10px] font-bold text-slate-400 mt-1">
                             Paid: <span className={record.paymentStatus === 'paid' ? 'text-emerald-600' : 'text-amber-600'}>{record.paymentStatus || 'Pending'}</span>
                         </div>
-                        {record.transactionId && (
-                            <div className="text-[9px] font-mono text-slate-300 mt-0.5 truncate max-w-[120px]" title={record.transactionId}>
-                                TXN: {record.transactionId}
+                        {record.transferHistory && record.transferHistory.length > 0 && (
+                            <div className="text-[9px] font-bold text-purple-600 mt-1 flex items-center gap-1">
+                                <FiShare2 size={10} /> Transferred ({record.transferHistory.length}x)
                             </div>
                         )}
                     </div>
@@ -149,30 +230,21 @@ const DoctorAppointments = () => {
             title: 'Actions',
             dataIndex: 'actions',
             render: (_, record) => (
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                     {record.status === 'pending' && (
                         <>
-                            <button
-                                className="bg-emerald-600 text-white font-bold px-3 py-1.5 rounded-xl text-xs hover:bg-emerald-700 shadow-sm transition-all"
-                                onClick={() => handleStatus(record, 'approved')}
-                            >
-                                Approve
-                            </button>
-                            <button
-                                className="bg-red-50 text-red-600 font-bold px-3 py-1.5 rounded-xl text-xs hover:bg-red-100 border border-red-200 transition-all"
-                                onClick={() => handleStatus(record, 'reject')}
-                            >
-                                Reject
-                            </button>
+                            <button className="bg-emerald-600 text-white font-bold px-3 py-1.5 rounded-xl text-xs hover:bg-emerald-700 shadow-sm transition-all" onClick={() => handleStatus(record, 'approved')}>Approve</button>
+                            <button className="bg-red-50 text-red-600 font-bold px-3 py-1.5 rounded-xl text-xs hover:bg-red-100 border border-red-200 transition-all" onClick={() => handleStatus(record, 'reject')}>Reject</button>
                         </>
                     )}
                     {record.status === 'approved' && (
-                        <button
-                            className="bg-blue-600 text-white font-bold px-3 py-1.5 rounded-xl text-xs hover:bg-blue-700 shadow-sm transition-all"
-                            onClick={() => handleStatus(record, 'completed')}
-                        >
-                            Mark Completed
-                        </button>
+                        <button className="bg-emerald-600 text-white font-bold px-3 py-1.5 rounded-xl text-xs hover:bg-emerald-700 shadow-sm transition-all flex items-center gap-1" onClick={() => handleOpenCompleteModal(record)}><FiCheckCircle /> Complete Checkup</button>
+                    )}
+                    {record.status === 'completed' && (
+                        <button className="bg-slate-100 text-slate-700 font-bold px-3 py-1.5 rounded-xl text-xs hover:bg-slate-200 transition-all flex items-center gap-1" onClick={() => handleOpenCompleteModal(record)}><FiFileText /> Edit Notes</button>
+                    )}
+                    {(record.status === 'pending' || record.status === 'approved') && (
+                        <button className="bg-purple-50 text-purple-600 font-bold px-3 py-1.5 rounded-xl text-xs hover:bg-purple-100 border border-purple-200 transition-all flex items-center gap-1" onClick={() => handleOpenTransferModal(record)}><FiShare2 /> Transfer</button>
                     )}
                 </div>
             )
@@ -195,6 +267,37 @@ const DoctorAppointments = () => {
                     <Table columns={columns} dataSource={appointments} rowKey="_id" pagination={{ pageSize: 8 }} />
                 </div>
             </div>
+
+            <Modal title={<div className="flex items-center gap-2 text-slate-800 font-black text-lg"><FiCheckCircle className="text-emerald-600" /> Complete Checkup & Add Prescription</div>} open={isCompleteModalOpen} onCancel={() => setIsCompleteModalOpen(false)} onOk={handleSaveCompleteCheckup} confirmLoading={completeLoading} okText="Complete Checkup & Save" okButtonProps={{ className: "bg-emerald-600 hover:bg-emerald-700" }} width={600}>
+                {completeAppointment && (
+                    <div className="space-y-4 py-4">
+                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-xs space-y-1">
+                            <p className="font-bold text-slate-800">Patient: <span className="font-normal">{completeAppointment.userInfo?.name}</span></p>
+                            <p className="font-bold text-slate-800">Mobile: <span className="font-normal">{completeAppointment.userInfo?.mobileNumber}</span></p>
+                            <p className="font-bold text-slate-800">Problem: <span className="font-normal">{completeAppointment.userInfo?.problem || 'General Checkup'}</span></p>
+                        </div>
+                        <div><label className="block text-xs font-black uppercase text-slate-500 mb-1">Clinical / Doctor Notes</label><Input.TextArea rows={3} placeholder="Diagnosis notes..." value={doctorNotes} onChange={e => setDoctorNotes(e.target.value)} className="rounded-xl font-medium" /></div>
+                        <div><label className="block text-xs font-black uppercase text-slate-500 mb-1">Prescription Details</label><Input.TextArea rows={3} placeholder="Medications..." value={prescription} onChange={e => setPrescription(e.target.value)} className="rounded-xl font-medium" /></div>
+                        <div><label className="block text-xs font-black uppercase text-slate-500 mb-1">Recommendations</label><Input.TextArea rows={2} placeholder="Follow-up instructions..." value={recommendations} onChange={e => setRecommendations(e.target.value)} className="rounded-xl font-medium" /></div>
+                    </div>
+                )}
+            </Modal>
+
+            <Modal title={<div className="flex items-center gap-2 text-slate-800 font-black text-lg"><FiShare2 className="text-purple-600" /> Transfer Appointment</div>} open={isTransferModalOpen} onCancel={() => setIsTransferModalOpen(false)} onOk={handleExecuteTransfer} confirmLoading={transferLoading} okText="Transfer Appointment" okButtonProps={{ className: "bg-purple-600 hover:bg-purple-700 text-white" }} width={500}>
+                {transferAppointment && (
+                    <div className="space-y-4 py-4">
+                        <div className="p-4 bg-purple-50 rounded-2xl border border-purple-100 text-xs space-y-1">
+                            <p className="font-bold text-purple-900">Patient: {transferAppointment.userInfo?.name}</p>
+                            <p className="font-bold text-purple-900">Code: {transferAppointment.appointmentCode}</p>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-black uppercase text-slate-500 mb-1">Select Target Specialist <span className="text-red-500">*</span></label>
+                            <Select className="w-full h-12 rounded-xl" placeholder="Select Doctor..." value={targetDoctorId || undefined} onChange={val => setTargetDoctorId(val)} options={allDoctors.map(doc => ({ value: doc._id, label: `${doc.name?.toLowerCase().startsWith('dr') ? doc.name : `Dr. ${doc.name}`} (${doc.specialization || 'Specialist'})` }))} />
+                        </div>
+                        <div><label className="block text-xs font-black uppercase text-slate-500 mb-1">Reason for Transfer</label><Input.TextArea rows={3} placeholder="Reason..." value={transferReason} onChange={e => setTransferReason(e.target.value)} className="rounded-xl font-medium" /></div>
+                    </div>
+                )}
+            </Modal>
         </Layout>
     );
 };

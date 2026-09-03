@@ -344,20 +344,78 @@ Generated on: ${new Date().toLocaleString()}
                 </div>
             </div>
 
-            {/* Doctor Approval Status */}
+            {/* Doctor Approval / Checkup Status */}
             <div className="mb-6">
-                <div className={`rounded-2xl p-6 flex items-center gap-4 ${appointment.status === 'approved' ? 'bg-emerald-50 border-2 border-emerald-200' : appointment.status === 'rejected' || appointment.status === 'cancelled' ? 'bg-red-50 border-2 border-red-200' : 'bg-amber-50 border-2 border-amber-200'}`}>
-                    <div className={`w-12 h-12 rounded-full flex items-center justify-center ${appointment.status === 'approved' ? 'bg-emerald-500' : appointment.status === 'rejected' || appointment.status === 'cancelled' ? 'bg-red-500' : 'bg-amber-500'}`}>
+                <div className={`rounded-2xl p-6 flex items-center gap-4 ${appointment.status === 'completed' || appointment.status === 'approved' ? 'bg-emerald-50 border-2 border-emerald-200' : appointment.status === 'rejected' || appointment.status === 'cancelled' ? 'bg-red-50 border-2 border-red-200' : 'bg-amber-50 border-2 border-amber-200'}`}>
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center ${appointment.status === 'completed' || appointment.status === 'approved' ? 'bg-emerald-500' : appointment.status === 'rejected' || appointment.status === 'cancelled' ? 'bg-red-500' : 'bg-amber-500'}`}>
                         <FiShield className="text-white text-xl" />
                     </div>
                     <div>
-                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Doctor Approval Status</p>
-                        <p className={`text-lg font-black uppercase tracking-tight italic ${appointment.status === 'approved' ? 'text-emerald-700' : appointment.status === 'rejected' || appointment.status === 'cancelled' ? 'text-red-700' : 'text-amber-700'}`}>
-                            {appointment.status === 'approved' ? '✅ Approved by Doctor' : appointment.status === 'rejected' ? '❌ Rejected by Doctor' : appointment.status === 'cancelled' ? '🚫 Cancelled' : '⏳ Pending Doctor Approval'}
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Consultation Status</p>
+                        <p className={`text-lg font-black uppercase tracking-tight italic ${appointment.status === 'completed' || appointment.status === 'approved' ? 'text-emerald-700' : appointment.status === 'rejected' || appointment.status === 'cancelled' ? 'text-red-700' : 'text-amber-700'}`}>
+                            {appointment.status === 'completed' ? '✅ Checkup Completed' : appointment.status === 'approved' ? '✅ Approved by Doctor' : appointment.status === 'rejected' ? '❌ Rejected by Doctor' : appointment.status === 'cancelled' ? '🚫 Cancelled' : '⏳ Pending Doctor Approval'}
                         </p>
                     </div>
                 </div>
             </div>
+
+            {/* Doctor Clinical Notes & Prescription */}
+            {(appointment.doctorNotes || appointment.prescription || appointment.recommendations) && (
+                <div className="mb-6">
+                    <h3 className="text-lg font-black text-primary uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <FiFileText /> Clinical Notes & Prescription
+                    </h3>
+                    <div className="bg-emerald-50/70 border-2 border-emerald-200 rounded-2xl p-6 space-y-3">
+                        {appointment.prescribedAt && (
+                            <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest">
+                                Timestamp: {new Date(appointment.prescribedAt).toLocaleString()}
+                            </p>
+                        )}
+                        {appointment.doctorNotes && (
+                            <div>
+                                <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Diagnosis Notes</p>
+                                <p className="text-sm font-medium text-slate-800">{appointment.doctorNotes}</p>
+                            </div>
+                        )}
+                        {appointment.prescription && (
+                            <div>
+                                <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Prescription / Medications</p>
+                                <div className="bg-white p-4 rounded-xl border border-emerald-200 text-sm font-bold text-emerald-900">
+                                    {appointment.prescription}
+                                </div>
+                            </div>
+                        )}
+                        {appointment.recommendations && (
+                            <div>
+                                <p className="text-[10px] font-black uppercase text-slate-400 mb-1">Recommendations & Follow-up</p>
+                                <p className="text-sm font-medium text-slate-800">{appointment.recommendations}</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* Doctor Transfer History */}
+            {appointment.transferHistory && appointment.transferHistory.length > 0 && (
+                <div className="mb-6">
+                    <h3 className="text-lg font-black text-purple-700 uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <FiShare2 /> Doctor Transfer Audit Log ({appointment.transferHistory.length})
+                    </h3>
+                    <div className="bg-purple-50/70 border-2 border-purple-200 rounded-2xl p-6 space-y-2">
+                        {appointment.transferHistory.map((t, idx) => (
+                            <div key={idx} className="bg-white p-3 rounded-xl border border-purple-100 text-xs flex justify-between items-center">
+                                <div>
+                                    <p className="font-bold text-purple-900">{t.fromDoctorName} ➔ {t.toDoctorName}</p>
+                                    <p className="text-[10px] text-slate-500">Reason: {t.reason}</p>
+                                </div>
+                                <span className="text-[10px] font-bold text-slate-400">
+                                    {new Date(t.transferredAt).toLocaleString()}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             {/* Patient Information */}
             <div className="mb-6">
@@ -377,8 +435,8 @@ Generated on: ${new Date().toLocaleString()}
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Mobile Number</p>
-                            <p className="text-sm font-bold text-slate-800">{appointment.userInfo?.mobileNumber || 'N/A'}</p>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Mobile Reference</p>
+                            <p className="text-sm font-bold text-emerald-600 font-mono">{appointment.userInfo?.mobileNumber || 'N/A'}</p>
                         </div>
                         <div>
                             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Age</p>
@@ -421,7 +479,6 @@ Generated on: ${new Date().toLocaleString()}
                         <p className="text-sm font-bold text-slate-800">₹{appointment.doctorInfo?.feesPerConsultation}</p>
                     </div>
                 </div>
-
             </div>
 
             {/* Payment Details */}
@@ -504,8 +561,6 @@ Generated on: ${new Date().toLocaleString()}
                 </div>
             )}
 
-
-
             {/* Important Note */}
             <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-6 mb-6">
                 <p className="text-xs font-bold text-amber-800 leading-relaxed">
@@ -513,11 +568,15 @@ Generated on: ${new Date().toLocaleString()}
                 </p>
             </div>
 
-            {/* Footer */}
+            {/* Footer with Timestamps */}
             <div className="text-center pt-6 border-t-2 border-slate-100">
-                <p className="text-slate-400 text-xs font-bold">
-                    © 2024 Smart Health Assistant. All Rights Reserved.
+                <p className="text-slate-400 text-xs font-bold mb-1">
+                    © 2026 Smart Health Assistant. All Rights Reserved.
                 </p>
+                <p className="text-[10px] font-mono text-slate-400 uppercase tracking-widest">
+                    Generated on: {new Date().toLocaleString()} • Audit Timestamp: {new Date().toISOString()}
+                </p>
+            </div>
                 <p className="text-slate-300 text-[10px] font-medium mt-1">
                     For support, contact: medi.connectofficial2026@gmail.com
                 </p>

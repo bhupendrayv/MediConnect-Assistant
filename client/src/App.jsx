@@ -23,6 +23,7 @@ import AdminBloodRequests from './pages/admin/AdminBloodRequests';
 import AdminBroadcast from './pages/admin/AdminBroadcast';
 import AdminLogin from './pages/admin/AdminLogin';
 import DoctorLogin from './pages/doctor/DoctorLogin';
+import MobileLookup from './pages/MobileLookup';
 import { FiActivity } from 'react-icons/fi';
 
 function App() {
@@ -125,6 +126,11 @@ function App() {
                 <Route path="/doctor-appointments" element={
                     <ProtectedRoute>
                         <DoctorAppointments />
+                    </ProtectedRoute>
+                } />
+                <Route path="/mobile-lookup" element={
+                    <ProtectedRoute>
+                        <MobileLookup />
                     </ProtectedRoute>
                 } />
                 <Route path="/ai-diagnosis" element={

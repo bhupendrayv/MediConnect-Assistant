@@ -17,7 +17,8 @@ const {
     updateUserProfileController,
     createRazorpayOrderController,
     verifyPaymentController,
-    processDummyPaymentController
+    processDummyPaymentController,
+    searchAppointmentsByMobileController
 } = require('../controllers/userController');
 const {
     createStripeSessionController,
@@ -62,6 +63,9 @@ router.get('/get-diagnosis-history', authMiddleware, getDiagnosisHistoryControll
 
 // Check Appointment || POST
 router.post('/check-appointment', authMiddleware, checkAppointmentController);
+
+// Search Appointments by Mobile Number || POST
+router.post('/search-appointments-by-mobile', searchAppointmentsByMobileController);
 
 // Get Dashboard Stats || GET
 router.get('/get-dashboard-stats', authMiddleware, getDashboardStatsController);
