@@ -24,6 +24,7 @@ import AdminBroadcast from './pages/admin/AdminBroadcast';
 import AdminLogin from './pages/admin/AdminLogin';
 import DoctorLogin from './pages/doctor/DoctorLogin';
 import MobileLookup from './pages/MobileLookup';
+import CheckStatus from './pages/CheckStatus';
 import { FiActivity } from 'react-icons/fi';
 
 function App() {
@@ -47,6 +48,7 @@ function App() {
             )}
             <Routes>
                 <Route path="/" element={<LandingPage />} />
+                <Route path="/check-status" element={<CheckStatus />} />
                 <Route path="/home" element={
                     <ProtectedRoute>
                         <HomePage />

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FiActivity, FiShield, FiUserCheck, FiArrowRight, FiEdit2, FiSave, FiX, FiClock, FiCreditCard, FiStar, FiCamera } from 'react-icons/fi';
+import { FiActivity, FiShield, FiUserCheck, FiArrowRight, FiEdit2, FiSave, FiX, FiClock, FiCreditCard, FiStar, FiCamera, FiSearch } from 'react-icons/fi';
 import api from '../services/api';
 import { useSelector } from 'react-redux';
 import { message } from 'antd';
@@ -499,6 +499,9 @@ const LandingPage = () => {
                         <div className="flex flex-wrap gap-5">
                             <Link to="/register" className="px-10 py-5 bg-primary text-white text-lg font-bold rounded-2xl shadow-2xl shadow-primary/30 hover:shadow-primary/40 hover:-translate-y-1 transition-all flex items-center gap-3 group">
                                 Book Appointment <FiArrowRight className="group-hover:translate-x-1 transition-transform" />
+                            </Link>
+                            <Link to="/check-status" className="px-10 py-5 bg-indigo-600 text-white text-lg font-bold rounded-2xl shadow-2xl shadow-indigo-600/30 hover:shadow-indigo-600/40 hover:-translate-y-1 transition-all flex items-center gap-3 group">
+                                <FiSearch className="text-xl" /> Check Status
                             </Link>
                             <a href="#services" className="px-10 py-5 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-lg font-bold rounded-2xl border-2 border-slate-100 dark:border-slate-700 hover:border-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-all">
                                 Our Services
