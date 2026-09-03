@@ -22,6 +22,7 @@ import SiteSettings from './pages/admin/SiteSettings';
 import AdminAppointments from './pages/admin/AdminAppointments';
 import AdminBloodRequests from './pages/admin/AdminBloodRequests';
 import AdminBroadcast from './pages/admin/AdminBroadcast';
+import { FiActivity } from 'react-icons/fi';
 
 function App() {
     const { loading } = useSelector(state => state.alerts);
