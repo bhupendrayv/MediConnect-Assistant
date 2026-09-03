@@ -5,7 +5,12 @@ services:
     plan: free
     rootDir: server
     buildCommand: npm install
-    startCommand: node server.js
+    healthCheckPath: /health
+    scaling:
+      minInstances: 1
+      maxInstances: 3
+      targetCPUPercent: 70
+      targetMemoryPercent: 75
     envVars:
       - key: NODE_ENV
         value: production
