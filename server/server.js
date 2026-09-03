@@ -124,10 +124,19 @@ app.use('/api/v1/user', checkDbReady);
 app.use('/api/v1/admin', checkDbReady);
 app.use('/api/v1/doctor', checkDbReady);
 
+// Primary Routes
 app.use('/api/v1/user', authRoutes);
 app.use('/api/v1/user', userRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/doctor', doctorRoutes);
+
+// Compatibility alias routes (in case frontend URL is configured without /v1 or with /api)
+app.use('/api/user', checkDbReady, authRoutes);
+app.use('/api/user', checkDbReady, userRoutes);
+app.use('/api/admin', checkDbReady, adminRoutes);
+app.use('/api/doctor', checkDbReady, doctorRoutes);
+app.use('/user', checkDbReady, authRoutes);
+app.use('/user', checkDbReady, userRoutes);
 
 // Global 404 Handler for undefined API routes
 app.use('/api/*', (req, res) => {
