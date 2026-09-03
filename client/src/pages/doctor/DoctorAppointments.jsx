@@ -78,6 +78,8 @@ const DoctorAppointments = () => {
         setDoctorNotes(record.doctorNotes || '');
         setPrescription(record.prescription || '');
         setRecommendations(record.recommendations || '');
+        setTargetDoctorId('');
+        setTransferReason('');
         setIsCompleteModalOpen(true);
     };
 
@@ -92,9 +94,19 @@ const DoctorAppointments = () => {
                 prescription,
                 recommendations
             });
+
+            // If targetDoctorId selected, also execute transfer
+            if (targetDoctorId) {
+                await api.post('/doctor/transfer-appointment', {
+                    appointmentId: completeAppointment._id,
+                    targetDoctorId,
+                    reason: transferReason || 'Patient transferred after clinical review'
+                });
+            }
+
             setCompleteLoading(false);
             if (res.data.success) {
-                message.success('Checkup completed & prescription saved!');
+                message.success('Checkup updated' + (targetDoctorId ? ' & patient transferred successfully!' : '!'));
                 setIsCompleteModalOpen(false);
                 getAppointments();
             } else {
@@ -258,9 +270,9 @@ const DoctorAppointments = () => {
                         <button className="bg-emerald-600 text-white font-bold px-3 py-1.5 rounded-xl text-xs hover:bg-emerald-700 shadow-sm transition-all flex items-center gap-1" onClick={() => handleOpenCompleteModal(record)}><FiCheckCircle /> Complete Checkup</button>
                     )}
                     {record.status === 'completed' && (
-                        <button className="bg-slate-100 text-slate-700 font-bold px-3 py-1.5 rounded-xl text-xs hover:bg-slate-200 transition-all flex items-center gap-1" onClick={() => handleOpenCompleteModal(record)}><FiFileText /> Edit Notes</button>
+                        <button className="bg-slate-100 text-slate-700 font-bold px-3 py-1.5 rounded-xl text-xs hover:bg-slate-200 transition-all flex items-center gap-1" onClick={() => handleOpenCompleteModal(record)}><FiFileText /> Edit Notes / Transfer</button>
                     )}
-                    {(record.status === 'pending' || record.status === 'approved') && (
+                    {record.status !== 'cancelled' && record.status !== 'rejected' && (
                         <button className="bg-purple-50 text-purple-600 font-bold px-3 py-1.5 rounded-xl text-xs hover:bg-purple-100 border border-purple-200 transition-all flex items-center gap-1" onClick={() => handleOpenTransferModal(record)}><FiShare2 /> Transfer</button>
                     )}
                 </div>
@@ -286,7 +298,7 @@ const DoctorAppointments = () => {
                 </div>
             </div>
 
-            <Modal title={<div className="flex items-center gap-2 text-slate-800 font-black text-lg"><FiCheckCircle className="text-emerald-600" /> Complete Checkup & Add Prescription</div>} open={isCompleteModalOpen} onCancel={() => setIsCompleteModalOpen(false)} onOk={handleSaveCompleteCheckup} confirmLoading={completeLoading} okText="Complete Checkup & Save" okButtonProps={{ className: "bg-emerald-600 hover:bg-emerald-700" }} width={600}>
+            <Modal title={<div className="flex items-center gap-2 text-slate-800 font-black text-lg"><FiCheckCircle className="text-emerald-600" /> Clinical Notes & Patient Transfer</div>} open={isCompleteModalOpen} onCancel={() => setIsCompleteModalOpen(false)} onOk={handleSaveCompleteCheckup} confirmLoading={completeLoading} okText="Save & Apply" okButtonProps={{ className: "bg-emerald-600 hover:bg-emerald-700" }} width={600}>
                 {completeAppointment && (
                     <div className="space-y-4 py-4">
                         <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-xs space-y-1">
@@ -297,6 +309,25 @@ const DoctorAppointments = () => {
                         <div><label className="block text-xs font-black uppercase text-slate-500 mb-1">Clinical / Doctor Notes</label><Input.TextArea rows={3} placeholder="Diagnosis notes..." value={doctorNotes} onChange={e => setDoctorNotes(e.target.value)} className="rounded-xl font-medium" /></div>
                         <div><label className="block text-xs font-black uppercase text-slate-500 mb-1">Prescription Details</label><Input.TextArea rows={3} placeholder="Medications..." value={prescription} onChange={e => setPrescription(e.target.value)} className="rounded-xl font-medium" /></div>
                         <div><label className="block text-xs font-black uppercase text-slate-500 mb-1">Recommendations</label><Input.TextArea rows={2} placeholder="Follow-up instructions..." value={recommendations} onChange={e => setRecommendations(e.target.value)} className="rounded-xl font-medium" /></div>
+
+                        {/* Transfer Section inside Edit Notes Modal */}
+                        <div className="pt-4 border-t border-slate-100">
+                            <label className="block text-xs font-black uppercase text-purple-700 mb-2 flex items-center gap-1.5">
+                                <FiShare2 /> Transfer Patient to Another Specialist (Optional)
+                            </label>
+                            <div className="space-y-3 p-4 bg-purple-50/60 rounded-2xl border border-purple-100">
+                                <div>
+                                    <label className="block text-[10px] font-bold uppercase text-purple-900 mb-1">Select Target Specialist</label>
+                                    <Select className="w-full h-11 rounded-xl" placeholder="Select Doctor to Transfer to (Optional)..." allowClear value={targetDoctorId || undefined} onChange={val => setTargetDoctorId(val)} options={allDoctors.map(doc => ({ value: doc._id, label: `${doc.name?.toLowerCase().startsWith('dr') ? doc.name : `Dr. ${doc.name}`} (${doc.specialization || 'Specialist'})` }))} />
+                                </div>
+                                {targetDoctorId && (
+                                    <div>
+                                        <label className="block text-[10px] font-bold uppercase text-purple-900 mb-1">Reason for Transfer</label>
+                                        <Input.TextArea rows={2} placeholder="State referral reason..." value={transferReason} onChange={e => setTransferReason(e.target.value)} className="rounded-xl font-medium" />
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 )}
             </Modal>
