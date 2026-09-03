@@ -198,6 +198,31 @@ const DoctorAppointments = () => {
             )
         },
         {
+            title: 'Payment Status',
+            key: 'paymentStatus',
+            render: (_, record) => (
+                <div>
+                    {record.paymentStatus === 'paid' ? (
+                        <Tag color="green" className="font-black text-[10px] uppercase rounded-full px-3 py-0.5">
+                            PAID
+                        </Tag>
+                    ) : (
+                        <Tag color="orange" className="font-black text-[10px] uppercase rounded-full px-3 py-0.5">
+                            PENDING
+                        </Tag>
+                    )}
+                    {record.transactionId && (
+                        <div className="text-[9px] font-mono text-slate-400 font-bold mt-1">
+                            TXN: {record.transactionId}
+                        </div>
+                    )}
+                    <div className="text-[10px] font-black text-emerald-700 mt-0.5">
+                        Fee: ₹{record.totalAmount || record.doctorInfo?.feesPerConsultation || 500}
+                    </div>
+                </div>
+            )
+        },
+        {
             title: 'Status & Transfer',
             dataIndex: 'status',
             render: (status, record) => {
@@ -209,9 +234,6 @@ const DoctorAppointments = () => {
                 return (
                     <div>
                         <Tag color={color} className="font-black text-[10px] uppercase px-2.5 py-0.5 rounded-full">{label}</Tag>
-                        <div className="text-[10px] font-bold text-slate-400 mt-1">
-                            Paid: <span className={record.paymentStatus === 'paid' ? 'text-emerald-600' : 'text-amber-600'}>{record.paymentStatus || 'Pending'}</span>
-                        </div>
                         {record.transferHistory && record.transferHistory.length > 0 && (
                             <div className="text-[9px] font-bold text-purple-600 mt-1 flex items-center gap-1">
                                 <FiShare2 size={10} /> Transferred ({record.transferHistory.length}x)
