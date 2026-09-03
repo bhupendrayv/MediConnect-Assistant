@@ -38,8 +38,8 @@ const BookingPage = () => {
 
     // New State for Service Selection
     const [selectedServices, setSelectedServices] = useState([]);
-    // State for Available Services (to allow price editing)
-    const [availableServices, setAvailableServices] = useState([]);
+    // State for Available Services - initialize with default services so Step 1 is never blank
+    const [availableServices, setAvailableServices] = useState(services);
     // State for all available doctors in the hospital
     const [allDoctors, setAllDoctors] = useState([]);
 
@@ -49,7 +49,8 @@ const BookingPage = () => {
                 headers: { Authorization: "Bearer " + localStorage.getItem('token') }
             });
             if (res.data.success) {
-                setAllDoctors(res.data.data.filter(d => d.status === 'approved' || d.isAvailable !== false));
+                // Show ALL doctors - don't filter by status so admin-added doctors appear
+                setAllDoctors(res.data.data.filter(d => d.isAvailable !== false));
             }
         } catch (err) {
             console.error('Error fetching all doctors:', err);

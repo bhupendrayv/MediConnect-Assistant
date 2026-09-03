@@ -4,7 +4,7 @@ import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { setUser } from '../../redux/features/userSlice';
 import { message } from 'antd';
-import { FiActivity, FiBell, FiCalendar, FiCpu, FiGrid, FiHome, FiLogOut, FiMenu, FiSettings, FiUser, FiUserCheck, FiDroplet, FiCamera, FiCreditCard } from 'react-icons/fi';
+import { FiActivity, FiBell, FiCalendar, FiCpu, FiGrid, FiHome, FiLogOut, FiMenu, FiSettings, FiUser, FiUserCheck, FiDroplet, FiCamera, FiCreditCard, FiPlusCircle } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const Layout = ({ children }) => {
@@ -17,6 +17,7 @@ const Layout = ({ children }) => {
     // Menu list based on role
     const userMenu = [
         { name: 'Dashboard', path: '/dashboard', icon: <FiGrid /> },
+        { name: 'Book Appointment', path: '/book-appointment', icon: <FiPlusCircle /> },
         { name: 'Appointments', path: '/appointments', icon: <FiCalendar /> },
         { name: 'Symptom AI', path: '/ai-diagnosis', icon: <FiCpu /> },
         { name: 'Blood Bank', path: '/blood-bank', icon: <FiDroplet style={{ color: '#ef4444' }} /> },
