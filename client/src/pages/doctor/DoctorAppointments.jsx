@@ -22,7 +22,7 @@ const DoctorAppointments = () => {
 
     const getAppointments = async () => {
         try {
-            const res = await axios.get('/api/v1/doctor/doctor-appointments', {
+            const res = await axios.get('/doctor/doctor-appointments', {
                 headers: {
                     Authorization: "Bearer " + localStorage.getItem('token'),
                 },
@@ -37,7 +37,7 @@ const DoctorAppointments = () => {
 
     const handleStatus = async (record, status) => {
         try {
-            const res = await axios.post('/api/v1/doctor/update-status', { appointmentsId: record._id, status }, {
+            const res = await axios.post('/doctor/update-status', { appointmentsId: record._id, status }, {
                 headers: {
                     Authorization: "Bearer " + localStorage.getItem('token'),
                 },
@@ -136,6 +136,11 @@ const DoctorAppointments = () => {
                         <div className="text-[10px] font-bold text-slate-400 mt-1">
                             Paid: <span className={record.paymentStatus === 'paid' ? 'text-emerald-600' : 'text-amber-600'}>{record.paymentStatus || 'Pending'}</span>
                         </div>
+                        {record.transactionId && (
+                            <div className="text-[9px] font-mono text-slate-300 mt-0.5 truncate max-w-[120px]" title={record.transactionId}>
+                                TXN: {record.transactionId}
+                            </div>
+                        )}
                     </div>
                 );
             }

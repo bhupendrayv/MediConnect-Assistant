@@ -16,7 +16,7 @@ const AIHelper = () => {
 
     const getHistory = async () => {
         try {
-            const res = await axios.post('/api/v1/user/get-diagnosis-history', { userId: user?._id }, {
+            const res = await axios.post('/user/get-diagnosis-history', { userId: user?._id }, {
                 headers: {
                     Authorization: `Bearer ${localStorage.getItem('token')}`
                 }
@@ -38,7 +38,7 @@ const AIHelper = () => {
     const onFinish = async (values) => {
         try {
             dispatch(showLoading());
-            const res = await axios.post('/api/v1/user/predict-disease', { ...values, userId: user?._id }, {
+            const res = await axios.post('/user/predict-disease', { ...values, userId: user?._id }, {
                 headers: {
                     Authorization: `Bearer ${localStorage.getItem('token')}`
                 }

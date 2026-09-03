@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/layout/Layout';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../services/api';
 import { DatePicker, message, TimePicker } from 'antd';
 import { useDispatch, useSelector } from 'react-redux';
 import { showLoading, hideLoading } from '../redux/features/alertSlice';
@@ -42,21 +42,29 @@ const BookingPage = () => {
     const [availableServices, setAvailableServices] = useState(services);
     // State for all available doctors in the hospital
     const [allDoctors, setAllDoctors] = useState([]);
+    // State for Department/Specialization
+    const [selectedDepartment, setSelectedDepartment] = useState('');
+
+    const defaultDepartments = ['Cardiology', 'Dermatology', 'General Medicine', 'Neurology', 'Pediatrics', 'Orthopedic Surgery'];
+    const availableDepartments = Array.from(
+        new Set([
+            ...defaultDepartments,
+            ...allDoctors.map(d => d.specialization).filter(Boolean)
+        ])
+    ).sort();
 
     const getAllDoctorsList = async () => {
         try {
-            const res = await axios.get('/api/v1/user/getAllDoctors', {
+            const res = await api.get('/user/getAllDoctors', {
                 headers: { Authorization: "Bearer " + localStorage.getItem('token') }
             });
             if (res.data.success) {
                 const doctorList = res.data.data.filter(d => d.isAvailable !== false);
                 setAllDoctors(doctorList);
-                // Auto-select first doctor if none in URL
+                // Set default department if none selected
                 if (!params.doctorId && doctorList.length > 0) {
-                    const firstDoc = doctorList[0];
-                    setDoctor(firstDoc);
-                    const outputServices = firstDoc.services?.length > 0 ? firstDoc.services : services;
-                    setAvailableServices(outputServices);
+                    const firstDept = doctorList[0]?.specialization || 'General Medicine';
+                    setSelectedDepartment(prev => prev || firstDept);
                 }
             }
         } catch (err) {
@@ -68,7 +76,7 @@ const BookingPage = () => {
         const idToFetch = targetDocId || params.doctorId;
         if (!idToFetch) return;
         try {
-            const res = await axios.post('/api/v1/doctor/getDoctorById', { doctorId: idToFetch }, {
+            const res = await api.post('/doctor/getDoctorById', { doctorId: idToFetch }, {
                 headers: {
                     Authorization: "Bearer " + localStorage.getItem('token'),
                 },
@@ -85,6 +93,9 @@ const BookingPage = () => {
                     timings: apiDoc.timings || localDoc?.timings || {},
                 };
                 setDoctor(merged);
+                if (merged.specialization) {
+                    setSelectedDepartment(merged.specialization);
+                }
                 const outputServices = merged.services?.length > 0 ? merged.services : services;
                 setAvailableServices(outputServices);
             }
@@ -147,8 +158,22 @@ const BookingPage = () => {
                 return message.error("Admins cannot book appointments. Please use a patient account.");
             }
 
-            if (!doctor || !doctor._id) {
-                return message.error("Please select a doctor before booking.");
+            if (!selectedDepartment) {
+                return message.error("Please select a department before booking.");
+            }
+
+            // Auto-assign random available doctor from the selected department if no specific doctor chosen
+            let activeDoctor = doctor;
+            if (!activeDoctor || !activeDoctor._id) {
+                const deptDocs = allDoctors.filter(d =>
+                    d.specialization?.toLowerCase() === selectedDepartment.toLowerCase() && d.isAvailable !== false
+                );
+                const pool = deptDocs.length > 0 ? deptDocs : allDoctors;
+                if (pool.length === 0) {
+                    return message.error("No available doctors found in the system.");
+                }
+                activeDoctor = pool[Math.floor(Math.random() * pool.length)];
+                setDoctor(activeDoctor);
             }
 
             if (!patientName.trim()) return message.error("Patient name is required.");
@@ -166,14 +191,14 @@ const BookingPage = () => {
             dispatch(showLoading());
 
             // 1. Create Appointment (pending status)
-            const res = await axios.post('/api/v1/user/book-appointment',
+            const res = await api.post('/user/book-appointment',
                 {
-                    doctorId: doctor._id,  // Always use selected doctor state, NOT params.doctorId
+                    doctorId: activeDoctor._id,
                     userId: user._id,
                     doctorInfo: {
-                        name: doctor.name,
-                        specialization: doctor.specialization || 'General',
-                        feesPerConsultation: doctor.feesPerConsultation || 0
+                        name: activeDoctor.name,
+                        specialization: activeDoctor.specialization || selectedDepartment,
+                        feesPerConsultation: activeDoctor.feesPerConsultation || 500
                     },
                     userInfo: {
                         name: patientName,
@@ -189,7 +214,8 @@ const BookingPage = () => {
                     selectedServices: selectedServices.map(s => ({
                         name: s.name || 'Service',
                         price: s.price || 0
-                    }))
+                    })),
+                    paymentStatus: 'paid'
                 },
                 {
                     headers: {
@@ -204,29 +230,11 @@ const BookingPage = () => {
 
             setAppointmentCode(res.data.data.appointmentCode);
             setBookedAppointment(res.data.data);
-            const appointmentId = res.data.data._id;
-            const totalAmount = res.data.data.totalAmount;
-
-            // 2. Create Stripe Checkout Session
-            const sessionRes = await axios.post('/api/v1/user/create-stripe-session',
-                {
-                    amount: totalAmount,
-                    appointmentId: appointmentId,
-                    doctorName: doctor.name
-                },
-                {
-                    headers: {
-                        Authorization: "Bearer " + localStorage.getItem('token'),
-                    },
-                });
-
+            
+            // 2. Dummy Payment Success - Proceed directly to success screen
             dispatch(hideLoading());
-            if (sessionRes.data.success) {
-                // 3. Redirect to Stripe Checkout
-                window.location.href = sessionRes.data.url;
-            } else {
-                message.error(sessionRes.data.message || 'Failed to create payment session. Please try again.');
-            }
+            setStep(6);
+            message.success('Payment successful! Booking confirmed.');
 
         } catch (error) {
             dispatch(hideLoading());
@@ -281,7 +289,7 @@ const BookingPage = () => {
     const handleQuickEditSave = async () => {
         try {
             dispatch(showLoading());
-            const res = await axios.post('/api/v1/user/updateDoctorPublic', {
+            const res = await api.post('/user/updateDoctorPublic', {
                 _id: doctor._id,
                 timings: tempData.timings,
                 feesPerConsultation: tempData.feesPerConsultation
@@ -327,56 +335,134 @@ const BookingPage = () => {
                     <h1 className="text-4xl font-black text-slate-800 tracking-tight italic uppercase leading-none mb-2">Reserve Your Slot.</h1>
                     <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mb-6">Select a specialist and follow the steps to confirm your consultation</p>
 
-                    {/* Interactive Doctor Selection Bar */}
-                    {allDoctors.length > 0 && (
-                        <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm mb-8">
-                            <div className="flex items-center justify-between mb-3 px-2">
-                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                                    Step 1: Choose Your Doctor ({allDoctors.length} Available)
+                    {/* Department & Doctor Selection Section */}
+                    <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm mb-8 space-y-6">
+                        {/* 1. Department Selection (Required) */}
+                        <div>
+                            <div className="flex items-center justify-between mb-3 px-1">
+                                <span className="text-xs font-black uppercase tracking-widest text-slate-800 flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-primary inline-block"></span>
+                                    1. Select Department <span className="text-red-500">*</span>
+                                </span>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                    {availableDepartments.length} Departments Available
                                 </span>
                             </div>
-                            <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-none">
-                                {allDoctors.map((doc) => {
-                                    const isSelected = doctor?._id === doc._id;
+                            <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-none">
+                                {availableDepartments.map((dept) => {
+                                    const isSelected = selectedDepartment?.toLowerCase() === dept.toLowerCase();
+                                    const deptDocCount = allDoctors.filter(d => d.specialization?.toLowerCase() === dept.toLowerCase()).length;
                                     return (
-                                        <div
-                                            key={doc._id}
+                                        <button
+                                            key={dept}
+                                            type="button"
                                             onClick={() => {
-                                                // Set doctor directly from local list - avoids API race condition causing Dr. UNDEFINED
-                                                setDoctor(doc);
-                                                const outputServices = doc.services?.length > 0 ? doc.services : services;
-                                                setAvailableServices(outputServices);
+                                                setSelectedDepartment(dept);
+                                                // Reset specific doctor selection when changing department unless doctor matches
+                                                if (doctor && doctor.specialization?.toLowerCase() !== dept.toLowerCase()) {
+                                                    setDoctor(null);
+                                                }
                                             }}
-                                            className={`cursor-pointer flex-shrink-0 flex items-center gap-3 p-3.5 rounded-2xl border-2 transition-all min-w-[220px] ${
+                                            className={`flex-shrink-0 px-4 py-2.5 rounded-2xl text-xs font-black tracking-wide transition-all border-2 flex items-center gap-2 ${
                                                 isSelected
-                                                    ? 'border-primary bg-emerald-50/70 shadow-md shadow-primary/10'
-                                                    : 'border-slate-100 hover:border-slate-300 bg-slate-50/50'
+                                                    ? 'border-primary bg-primary text-white shadow-lg shadow-emerald-500/20 scale-105'
+                                                    : 'border-slate-100 bg-slate-50/70 text-slate-600 hover:border-slate-200 hover:bg-slate-100'
                                             }`}
                                         >
-                                            <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-200 flex-shrink-0">
-                                                <img
-                                                    src={getDoctorImg(doc)}
-                                                    alt={doc.name}
-                                                    className="w-full h-full object-cover"
-                                                />
-                                            </div>
-                                            <div className="text-left overflow-hidden">
-                                                <p className={`text-xs font-black truncate leading-tight ${isSelected ? 'text-primary' : 'text-slate-800'}`}>
-                                                    {doc.name?.toLowerCase().startsWith('dr') ? doc.name : `Dr. ${doc.name}`}
-                                                </p>
-                                                <p className="text-[10px] text-slate-500 font-bold truncate">
-                                                    {doc.specialization || 'Specialist'}
-                                                </p>
-                                                <p className="text-[10px] font-black text-slate-700 mt-0.5">
-                                                    ₹{doc.feesPerConsultation || 500}
-                                                </p>
-                                            </div>
-                                        </div>
+                                            <span>{dept}</span>
+                                            <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${isSelected ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                                                {deptDocCount}
+                                            </span>
+                                        </button>
                                     );
                                 })}
                             </div>
                         </div>
-                    )}
+
+                        {/* 2. Doctor Selection (Optional) */}
+                        <div>
+                            <div className="flex items-center justify-between mb-3 px-1">
+                                <span className="text-xs font-black uppercase tracking-widest text-slate-800 flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-amber-400 inline-block"></span>
+                                    2. Select Doctor <span className="text-[10px] font-bold text-slate-400 lowercase">(optional - auto-assigned if unselected)</span>
+                                </span>
+                                {doctor && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setDoctor(null)}
+                                        className="text-[10px] font-black uppercase tracking-widest text-emerald-600 hover:underline"
+                                    >
+                                        Auto-Assign Random Doctor
+                                    </button>
+                                )}
+                            </div>
+
+                            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none">
+                                {/* Auto-Assign Option Card */}
+                                <div
+                                    onClick={() => setDoctor(null)}
+                                    className={`cursor-pointer flex-shrink-0 flex items-center gap-3 p-3.5 rounded-2xl border-2 transition-all min-w-[200px] ${
+                                        !doctor
+                                            ? 'border-emerald-500 bg-emerald-50/80 shadow-md shadow-emerald-500/10'
+                                            : 'border-slate-100 hover:border-slate-300 bg-slate-50/50'
+                                    }`}
+                                >
+                                    <div className="w-11 h-11 rounded-xl bg-emerald-100 text-emerald-600 font-black text-xl flex items-center justify-center flex-shrink-0">
+                                        🎲
+                                    </div>
+                                    <div className="text-left overflow-hidden">
+                                        <p className={`text-xs font-black truncate leading-tight ${!doctor ? 'text-emerald-700' : 'text-slate-800'}`}>
+                                            Any Available Doctor
+                                        </p>
+                                        <p className="text-[10px] text-slate-500 font-bold truncate">
+                                            Auto-Assign in {selectedDepartment}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* Doctors in Selected Department */}
+                                {allDoctors
+                                    .filter(doc => doc.specialization?.toLowerCase() === selectedDepartment?.toLowerCase())
+                                    .map((doc) => {
+                                        const isSelected = doctor?._id === doc._id;
+                                        return (
+                                            <div
+                                                key={doc._id}
+                                                onClick={() => {
+                                                    setDoctor(doc);
+                                                    const outputServices = doc.services?.length > 0 ? doc.services : services;
+                                                    setAvailableServices(outputServices);
+                                                }}
+                                                className={`cursor-pointer flex-shrink-0 flex items-center gap-3 p-3.5 rounded-2xl border-2 transition-all min-w-[210px] ${
+                                                    isSelected
+                                                        ? 'border-primary bg-emerald-50/70 shadow-md shadow-primary/10'
+                                                        : 'border-slate-100 hover:border-slate-300 bg-slate-50/50'
+                                                }`}
+                                            >
+                                                <div className="w-11 h-11 rounded-xl overflow-hidden bg-slate-200 flex-shrink-0">
+                                                    <img
+                                                        src={getDoctorImg(doc)}
+                                                        alt={doc.name}
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                </div>
+                                                <div className="text-left overflow-hidden">
+                                                    <p className={`text-xs font-black truncate leading-tight ${isSelected ? 'text-primary' : 'text-slate-800'}`}>
+                                                        {doc.name?.toLowerCase().startsWith('dr') ? doc.name : `Dr. ${doc.name}`}
+                                                    </p>
+                                                    <p className="text-[10px] text-slate-500 font-bold truncate">
+                                                        {doc.specialization || 'Specialist'}
+                                                    </p>
+                                                    <p className="text-[10px] font-black text-slate-700 mt-0.5">
+                                                        ₹{doc.feesPerConsultation || 500}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div className="max-w-3xl mx-auto">
@@ -419,7 +505,7 @@ const BookingPage = () => {
                                             />
 
                                             <button
-                                                disabled={selectedServices.length === 0}
+                                                disabled={!selectedDepartment || selectedServices.length === 0}
                                                 onClick={() => setStep(2)}
                                                 className="w-full h-16 bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-widest italic flex items-center justify-center gap-4 hover:bg-emerald-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-xl shadow-emerald-600/20"
                                             >
@@ -529,20 +615,22 @@ const BookingPage = () => {
                                         >
                                             <div>
                                                 <h3 className="text-3xl font-black text-slate-800 tracking-tighter italic uppercase mb-2">Step 04: Details.</h3>
-                                                {/* Show selected doctor info inline */}
-                                                {doctor && (
-                                                    <div className="flex items-center gap-3 mt-3 p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
-                                                        <div className="w-10 h-10 rounded-xl overflow-hidden bg-emerald-200 flex-shrink-0">
-                                                            <img src={getDoctorImg(doctor)} alt={doctor.name} className="w-full h-full object-cover" />
-                                                        </div>
-                                                        <div>
-                                                            <p className="text-xs font-black text-emerald-800 uppercase tracking-widest">
-                                                                {doctor.name?.toLowerCase().startsWith('dr') ? doctor.name : `Dr. ${doctor.name || 'Selected Doctor'}`}
-                                                            </p>
-                                                            <p className="text-[10px] text-emerald-600 font-bold">{doctor.specialization || 'Specialist'} • ₹{doctor.feesPerConsultation || 0} consultation</p>
-                                                        </div>
+                                                {/* Show selected department & doctor info inline */}
+                                                <div className="flex items-center gap-3 mt-3 p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
+                                                    <div className="w-10 h-10 rounded-xl overflow-hidden bg-emerald-200 flex-shrink-0 flex items-center justify-center text-lg">
+                                                        {doctor ? <img src={getDoctorImg(doctor)} alt={doctor.name} className="w-full h-full object-cover" /> : '🏥'}
                                                     </div>
-                                                )}
+                                                    <div>
+                                                        <p className="text-xs font-black text-emerald-800 uppercase tracking-widest">
+                                                            {selectedDepartment} Department
+                                                        </p>
+                                                        <p className="text-[10px] text-emerald-600 font-bold">
+                                                            {doctor
+                                                                ? `${doctor.name?.toLowerCase().startsWith('dr') ? doctor.name : `Dr. ${doctor.name}`} • ₹${doctor.feesPerConsultation || 500} consultation`
+                                                                : 'Doctor: Auto-Assigned Specialist upon confirmation'}
+                                                        </p>
+                                                    </div>
+                                                </div>
                                                 <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-2"><span className="text-red-400">*</span> Required fields</p>
                                             </div>
                                             <div className="space-y-1">
@@ -626,8 +714,8 @@ const BookingPage = () => {
                                                             <FiCreditCard />
                                                         </div>
                                                         <div>
-                                                            <p className="font-black text-slate-800 uppercase tracking-tight italic">Stripe Secure Checkout</p>
-                                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Cards, UPI, NetBanking, Wallets</p>
+                                                            <p className="font-black text-slate-800 uppercase tracking-tight italic">Dummy Payment System</p>
+                                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Simulated Secure Checkout</p>
                                                         </div>
                                                     </div>
                                                     <div className="w-6 h-6 rounded-full border-4 border-primary bg-primary shadow-lg shadow-primary/20"></div>
@@ -659,7 +747,13 @@ const BookingPage = () => {
                                                 <div className="absolute top-0 right-0 w-24 h-24 bg-primary/20 rounded-full blur-3xl"></div>
                                                 <p className="text-white/40 font-black uppercase tracking-[0.3em] text-[8px] mb-2">Unique verification Code</p>
                                                 <h4 className="text-white text-5xl font-black italic tracking-tighter uppercase mb-4">{appointmentCode}</h4>
-                                                <p className="text-white/60 text-[10px] font-bold uppercase tracking-widest leading-relaxed">Please present this code to the specialist for verification.</p>
+                                                
+                                                <div className="mt-6 pt-6 border-t border-slate-800 text-left">
+                                                    <p className="text-white/40 font-black uppercase tracking-[0.3em] text-[8px] mb-1">Transaction ID</p>
+                                                    <p className="text-emerald-400 font-bold font-mono tracking-widest text-sm">{bookedAppointment?.transactionId}</p>
+                                                </div>
+                                                
+                                                <p className="text-white/60 text-[10px] font-bold uppercase tracking-widest leading-relaxed mt-6">Please present this code to the specialist for verification.</p>
                                             </div>
                                             <div className="flex flex-col w-full gap-4">
                                                 <button onClick={() => setShowReceipt(true)} className="w-full h-16 bg-primary/10 text-primary rounded-2xl font-black uppercase tracking-widest italic">View Details</button>

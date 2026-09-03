@@ -16,7 +16,8 @@ const {
     updatePublicDoctorController,
     updateUserProfileController,
     createRazorpayOrderController,
-    verifyPaymentController
+    verifyPaymentController,
+    processDummyPaymentController
 } = require('../controllers/userController');
 const {
     createStripeSessionController,
@@ -70,6 +71,9 @@ router.post('/cancel-appointment', authMiddleware, cancelAppointmentController);
 
 // Reschedule Appointment || POST
 router.post('/reschedule-appointment', authMiddleware, rescheduleAppointmentController);
+
+// DUMMY PAYMENT
+router.post('/process-dummy-payment', authMiddleware, processDummyPaymentController);
 
 // Blood Bank Routes
 router.post('/request-blood', authMiddleware, requestBloodController);

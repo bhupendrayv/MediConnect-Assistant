@@ -18,7 +18,7 @@ const ApplyDoctor = () => {
     const handleFinish = async (values) => {
         try {
             dispatch(showLoading());
-            const res = await axios.post('/api/v1/user/apply-doctor', {
+            const res = await axios.post('/user/apply-doctor', {
                 ...values,
                 userId: user._id,
                 timings: {

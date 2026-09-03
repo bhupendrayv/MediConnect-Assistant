@@ -32,12 +32,9 @@ const Appointments = () => {
     const handlePayment = async (record) => {
         try {
             dispatch(showLoading());
-            // 1. Create Stripe Checkout Session
-            const sessionRes = await axios.post('/api/v1/user/create-stripe-session',
+            const res = await axios.post('/user/process-dummy-payment',
                 {
-                    amount: record.totalAmount || record.doctorInfo.feesPerConsultation,
-                    appointmentId: record._id,
-                    doctorName: record.doctorInfo.name
+                    appointmentId: record._id
                 },
                 {
                     headers: {
@@ -46,23 +43,22 @@ const Appointments = () => {
                 });
 
             dispatch(hideLoading());
-            if (sessionRes.data.success) {
-                // 2. Redirect to Stripe Checkout
-                window.location.href = sessionRes.data.url;
+            if (res.data.success) {
+                message.success(`Payment successful! Transaction ID: ${res.data.data.transactionId}`);
+                getAppointments();
             } else {
-                message.error(sessionRes.data.message || 'Failed to create payment session.');
+                message.error(res.data.message || 'Payment failed.');
             }
-
         } catch (error) {
             dispatch(hideLoading());
             console.error('Payment error:', error);
-            message.error('Failed to initiate payment.');
+            message.error('Failed to process payment.');
         }
     };
 
     const getAppointments = async () => {
         try {
-            const res = await axios.get('/api/v1/user/user-appointments', {
+            const res = await axios.get('/user/user-appointments', {
                 headers: {
                     Authorization: "Bearer " + localStorage.getItem('token'),
                 },
@@ -87,7 +83,7 @@ const Appointments = () => {
     const handleCancel = async (apptId) => {
         if (!confirm('Are you sure you want to cancel this appointment?')) return;
         try {
-            const res = await axios.post('/api/v1/user/cancel-appointment', { appointmentId: apptId }, {
+            const res = await axios.post('/user/cancel-appointment', { appointmentId: apptId }, {
                 headers: { Authorization: "Bearer " + localStorage.getItem('token') }
             });
             if (res.data.success) {
@@ -104,7 +100,7 @@ const Appointments = () => {
         if (!newDate || !newTime) return message.error('Please select date and time');
         try {
             setRescheduleLoading(true);
-            const res = await axios.post('/api/v1/user/reschedule-appointment', {
+            const res = await axios.post('/user/reschedule-appointment', {
                 appointmentId: selectedAppointment._id,
                 date: newDate,
                 time: newTime
@@ -189,6 +185,22 @@ const Appointments = () => {
                             {svc.name} (₹{svc.price})
                         </Tag>
                     )) : <Tag color="gray" className="rounded-md border-0 bg-slate-50 text-slate-400 font-black uppercase text-[9px] italic">Standard</Tag>}
+                </div>
+            )
+        },
+        {
+            title: 'Payment',
+            key: 'payment',
+            render: (_, record) => (
+                <div className="flex flex-col">
+                    {record.paymentStatus === 'paid' ? (
+                        <Tag color="green" className="w-fit mb-1 font-black uppercase text-[9px]">PAID</Tag>
+                    ) : (
+                        <Tag color="orange" className="w-fit mb-1 font-black uppercase text-[9px]">PENDING</Tag>
+                    )}
+                    {record.transactionId && (
+                        <span className="text-[10px] text-slate-400 font-mono font-bold">{record.transactionId}</span>
+                    )}
                 </div>
             )
         },

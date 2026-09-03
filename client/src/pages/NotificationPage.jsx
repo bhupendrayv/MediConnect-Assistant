@@ -20,7 +20,7 @@ const NotificationPage = () => {
     const handleMarkAllRead = async () => {
         try {
             dispatch(showLoading());
-            const res = await axios.post('/api/v1/user/get-all-notification', { userId: user._id }, {
+            const res = await axios.post('/user/get-all-notification', { userId: user._id }, {
                 headers: {
                     Authorization: "Bearer " + localStorage.getItem('token'),
                 },

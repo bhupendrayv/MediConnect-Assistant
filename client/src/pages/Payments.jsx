@@ -76,7 +76,7 @@ const Payments = () => {
     const getPayments = useCallback(async () => {
         try {
             setLoading(true);
-            const res = await axios.get('/api/v1/user/user-appointments', {
+            const res = await axios.get('/user/user-appointments', {
                 headers: {
                     Authorization: `Bearer ${localStorage.getItem('token')}`,
                 },
@@ -95,7 +95,7 @@ const Payments = () => {
         try {
             setLoading(true);
             message.loading({ content: 'Verifying your payment...', key: 'verify', duration: 0 });
-            const res = await axios.post('/api/v1/user/verify-stripe-payment', { sessionId, appointmentId }, {
+            const res = await axios.post('/user/verify-stripe-payment', { sessionId, appointmentId }, {
                 headers: {
                     Authorization: `Bearer ${localStorage.getItem('token')}`,
                 },

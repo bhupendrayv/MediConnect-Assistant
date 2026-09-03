@@ -190,7 +190,7 @@ const bookAppointmentController = async (req, res) => {
             selectedServices: selectedServices || [],
             symptoms: symptoms || '',
             status: 'pending',
-            paymentStatus: 'pending',
+            paymentStatus: req.body.paymentStatus || 'pending',
             totalAmount
         });
 
@@ -225,6 +225,51 @@ const bookAppointmentController = async (req, res) => {
         res.status(500).send({
             success: false,
             message: error.message || 'Error while booking appointment',
+            error: error.message
+        });
+    }
+};
+
+// Process dummy payment for an existing appointment
+const processDummyPaymentController = async (req, res) => {
+    try {
+        const { appointmentId } = req.body;
+        if (!appointmentId) {
+            return res.status(400).send({
+                success: false,
+                message: 'Appointment ID is required'
+            });
+        }
+
+        const appointment = await Appointment.findById(appointmentId);
+        if (!appointment) {
+            return res.status(404).send({
+                success: false,
+                message: 'Appointment not found'
+            });
+        }
+
+        // Generate a new transaction ID if one doesn't exist, else use existing
+        let txId = appointment.transactionId;
+        if (!txId) {
+            const randomDigits = Array.from({ length: 10 }, () => Math.floor(Math.random() * 10)).join('');
+            txId = `T${randomDigits}`;
+            appointment.transactionId = txId;
+        }
+
+        appointment.paymentStatus = 'paid';
+        await appointment.save();
+
+        res.status(200).send({
+            success: true,
+            message: 'Payment processed successfully',
+            data: appointment
+        });
+    } catch (error) {
+        console.error('Error in processDummyPaymentController:', error);
+        res.status(500).send({
+            success: false,
+            message: 'Error processing payment',
             error: error.message
         });
     }
@@ -707,5 +752,6 @@ module.exports = {
     updatePublicDoctorController,
     updateUserProfileController,
     createRazorpayOrderController,
-    verifyPaymentController
+    verifyPaymentController,
+    processDummyPaymentController
 };

@@ -10,7 +10,7 @@ const SiteSettings = () => {
 
     const fetchSettings = async () => {
         try {
-            const res = await axios.get('/api/v1/admin/getSiteSettings', {
+            const res = await axios.get('/admin/getSiteSettings', {
                 headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
             });
             if (res.data.success) {
@@ -31,7 +31,7 @@ const SiteSettings = () => {
     const onFinish = async (values) => {
         try {
             setLoading(true);
-            const res = await axios.post('/api/v1/admin/updateSiteSettings', values, {
+            const res = await axios.post('/admin/updateSiteSettings', values, {
                 headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
             });
             if (res.data.success) {

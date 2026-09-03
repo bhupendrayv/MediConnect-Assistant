@@ -65,7 +65,7 @@ const Layout = ({ children }) => {
             reader.onloadend = async () => {
                 try {
                     const base64Image = reader.result;
-                    const res = await axios.post('/api/v1/user/update-profile-picture',
+                    const res = await axios.post('/user/update-profile-picture',
                         { userId: user._id, image: base64Image },
                         { headers: { Authorization: "Bearer " + localStorage.getItem('token') } }
                     );

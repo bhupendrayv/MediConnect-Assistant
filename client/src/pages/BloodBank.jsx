@@ -16,7 +16,7 @@ const BloodBank = () => {
     const getRequests = async () => {
         try {
             setTableLoading(true);
-            const res = await axios.get('/api/v1/user/get-blood-requests', {
+            const res = await axios.get('/user/get-blood-requests', {
                 headers: {
                     Authorization: `Bearer ${localStorage.getItem('token')}`
                 }
@@ -44,7 +44,7 @@ const BloodBank = () => {
                 userId: user._id,
                 neededBy: values.neededBy.toISOString()
             };
-            const res = await axios.post('/api/v1/user/request-blood', finalValues, {
+            const res = await axios.post('/user/request-blood', finalValues, {
                 headers: {
                     Authorization: `Bearer ${localStorage.getItem('token')}`
                 }

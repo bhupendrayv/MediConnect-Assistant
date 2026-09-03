@@ -20,7 +20,7 @@ const Profile = () => {
 
     const getDoctorInfo = async () => {
         try {
-            const res = await axios.post('/api/v1/doctor/getDoctorInfo', { userId: params.id }, {
+            const res = await axios.post('/doctor/getDoctorInfo', { userId: params.id }, {
                 headers: {
                     Authorization: `Bearer ${localStorage.getItem('token')}`
                 }
@@ -37,7 +37,7 @@ const Profile = () => {
     const handleToggleAvailability = async () => {
         try {
             dispatch(showLoading());
-            const res = await axios.post('/api/v1/doctor/toggle-availability', {
+            const res = await axios.post('/doctor/toggle-availability', {
                 userId: user._id
             }, {
                 headers: {
@@ -61,7 +61,7 @@ const Profile = () => {
     const handleFinish = async (values) => {
         try {
             dispatch(showLoading());
-            const res = await axios.post('/api/v1/doctor/updateProfile', {
+            const res = await axios.post('/doctor/updateProfile', {
                 ...values,
                 userId: user._id,
                 timings: {

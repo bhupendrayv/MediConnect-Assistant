@@ -14,7 +14,7 @@ const VerifyAppointment = () => {
 
     const handleStatus = async (status) => {
         try {
-            const res = await axios.post('/api/v1/doctor/update-status',
+            const res = await axios.post('/doctor/update-status',
                 { appointmentsId: appointment._id, status },
                 {
                     headers: {
@@ -35,7 +35,7 @@ const VerifyAppointment = () => {
     const onFinish = async (values) => {
         try {
             setLoading(true);
-            const res = await axios.post('/api/v1/user/check-appointment', values, {
+            const res = await axios.post('/user/check-appointment', values, {
                 headers: {
                     Authorization: `Bearer ${localStorage.getItem('token')}`
                 }
