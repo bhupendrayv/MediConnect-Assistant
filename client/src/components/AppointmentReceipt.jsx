@@ -576,7 +576,6 @@ Generated on: ${new Date().toLocaleString()}
                 <p className="text-[10px] font-mono text-slate-400 uppercase tracking-widest">
                     Generated on: {new Date().toLocaleString()} • Audit Timestamp: {new Date().toISOString()}
                 </p>
-            </div>
                 <p className="text-slate-300 text-[10px] font-medium mt-1">
                     For support, contact: medi.connectofficial2026@gmail.com
                 </p>
