@@ -8,6 +8,7 @@ const {
     updateSiteSettingsController,
     getAdminOverviewStatsController,
     getAllAppointmentsController,
+    updateAppointmentStatusByAdminController,
     broadcastNotificationController
 } = require('../controllers/adminController');
 const {
