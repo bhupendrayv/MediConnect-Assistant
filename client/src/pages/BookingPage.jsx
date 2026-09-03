@@ -49,8 +49,15 @@ const BookingPage = () => {
                 headers: { Authorization: "Bearer " + localStorage.getItem('token') }
             });
             if (res.data.success) {
-                // Show ALL doctors - don't filter by status so admin-added doctors appear
-                setAllDoctors(res.data.data.filter(d => d.isAvailable !== false));
+                const doctorList = res.data.data.filter(d => d.isAvailable !== false);
+                setAllDoctors(doctorList);
+                // Auto-select first doctor if none in URL
+                if (!params.doctorId && doctorList.length > 0) {
+                    const firstDoc = doctorList[0];
+                    setDoctor(firstDoc);
+                    const outputServices = firstDoc.services?.length > 0 ? firstDoc.services : services;
+                    setAvailableServices(outputServices);
+                }
             }
         } catch (err) {
             console.error('Error fetching all doctors:', err);
@@ -67,9 +74,18 @@ const BookingPage = () => {
                 },
             });
             if (res.data.success) {
-                setDoctor(res.data.data);
-                // Initialize available services: use doctor's custom services or default list
-                const outputServices = res.data.data.services?.length > 0 ? res.data.data.services : services;
+                // Merge with allDoctors entry to ensure name/specialization are populated
+                const apiDoc = res.data.data;
+                const localDoc = allDoctors.find(d => String(d._id) === String(idToFetch));
+                const merged = {
+                    ...apiDoc,
+                    name: apiDoc.name || localDoc?.name || 'Doctor',
+                    specialization: apiDoc.specialization || localDoc?.specialization || 'Specialist',
+                    feesPerConsultation: apiDoc.feesPerConsultation ?? localDoc?.feesPerConsultation ?? 0,
+                    timings: apiDoc.timings || localDoc?.timings || {},
+                };
+                setDoctor(merged);
+                const outputServices = merged.services?.length > 0 ? merged.services : services;
                 setAvailableServices(outputServices);
             }
         } catch (error) {
@@ -82,14 +98,10 @@ const BookingPage = () => {
         if (params.doctorId) {
             getDoctorData(params.doctorId);
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [params.doctorId]);
 
-    // Auto-select first doctor if none specified
-    useEffect(() => {
-        if (!params.doctorId && !doctor && allDoctors.length > 0) {
-            getDoctorData(allDoctors[0]._id);
-        }
-    }, [allDoctors, params.doctorId, doctor]);
+    // No separate auto-select effect needed - getAllDoctorsList handles it
 
     const handleUpdateServicePrice = (serviceId, newPrice) => {
         // Update in available list
@@ -130,13 +142,23 @@ const BookingPage = () => {
                 return message.error("User session not found. Please refresh the page and try again.");
             }
 
+            // Block admin from booking appointments
+            if (user.isAdmin || user.role === 'admin') {
+                return message.error("Admins cannot book appointments. Please use a patient account.");
+            }
+
             if (!doctor || !doctor._id) {
                 return message.error("Please select a doctor before booking.");
             }
 
-            if (!date || !time || !age || !gender || !address || !problem || !patientName || !mobileNumber) {
-                return message.error("Please provide all patient details including mobile number");
-            }
+            if (!patientName.trim()) return message.error("Patient name is required.");
+            if (!mobileNumber.trim()) return message.error("Mobile number is required.");
+            if (!age) return message.error("Age is required.");
+            if (!gender) return message.error("Gender is required.");
+            if (!date) return message.error("Please select a date.");
+            if (!time) return message.error("Please select a time slot.");
+            if (!address.trim()) return message.error("Address is required.");
+            if (!problem.trim()) return message.error("Please describe your medical problem.");
             if (selectedServices.length === 0) {
                 return message.error("Please select at least one service.");
             }
@@ -320,7 +342,10 @@ const BookingPage = () => {
                                         <div
                                             key={doc._id}
                                             onClick={() => {
-                                                getDoctorData(doc._id);
+                                                // Set doctor directly from local list - avoids API race condition causing Dr. UNDEFINED
+                                                setDoctor(doc);
+                                                const outputServices = doc.services?.length > 0 ? doc.services : services;
+                                                setAvailableServices(outputServices);
                                             }}
                                             className={`cursor-pointer flex-shrink-0 flex items-center gap-3 p-3.5 rounded-2xl border-2 transition-all min-w-[220px] ${
                                                 isSelected
@@ -354,81 +379,9 @@ const BookingPage = () => {
                     )}
                 </div>
 
-                <div className="grid lg:grid-cols-3 gap-12 items-start">
-                    {/* Doctor Info Card */}
-                    <div className="lg:col-span-1">
-                        <AnimatePresence mode='wait'>
-                            {doctor ? (
-                                <motion.div
-                                    initial={{ opacity: 0, x: -20 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    className="bg-white rounded-[3rem] p-10 border border-slate-100 shadow-xl shadow-slate-200/50 text-center sticky top-24"
-                                >
-                                    <div className="w-32 h-32 bg-gradient-to-br from-primary to-emerald-600 rounded-[2.5rem] mx-auto mb-8 flex items-center justify-center text-white text-5xl font-black shadow-2xl shadow-emerald-200 relative group/avatar overflow-hidden">
-                                        <img src={getDoctorImg(doctor)} alt={doctor.name} className="w-full h-full object-cover" />
-
-                                        {/* Unified Edit Button - Always Visible for Authorized */}
-                                        {((user?.role === 'admin' || user?.isAdmin) || String(user?._id) === String(doctor?._id) || String(user?._id) === String(doctor?.userId)) && (
-                                            <button
-                                                onClick={() => {
-                                                    setTempData({ timings: doctor.timings, feesPerConsultation: doctor.feesPerConsultation });
-                                                    setShowEditModal(true);
-                                                }}
-                                                className="absolute top-3 right-3 w-10 h-10 bg-primary text-white shadow-xl rounded-xl flex items-center justify-center hover:bg-slate-800 transition-all hover:scale-110 z-10 border-2 border-white"
-                                                title="Edit Profile"
-                                            >
-                                                <FiEdit2 size={18} />
-                                            </button>
-                                        )}
-                                    </div>
-                                    <h2 className="text-3xl font-black text-slate-800 tracking-tighter leading-[0.85] italic uppercase mb-2">
-                                        {doctor.name?.toLowerCase().startsWith('dr') ? doctor.name : `Dr. ${doctor.name || 'Unknown'}`}
-                                    </h2>
-                                    <p className="text-primary font-black uppercase tracking-widest text-xs mb-8">{doctor.specialization || 'Specialist'}</p>
-
-                                    <div className="space-y-4 mb-8">
-                                        <div className="flex items-center gap-4 p-5 bg-slate-50 rounded-[1.5rem] relative group/edit">
-                                            <div className="w-12 h-12 bg-white rounded-xl shadow-sm flex items-center justify-center text-primary text-2xl">
-                                                <FiClock />
-                                            </div>
-                                            <div className="text-left">
-                                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Available Hours</p>
-                                                <p className="text-xl font-black text-slate-800 italic leading-none mt-1">{doctor.timings?.start || '-'} - {doctor.timings?.end || '-'}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Estimated Total */}
-                                    {selectedServices.length > 0 && (
-                                        <div className="bg-slate-900 rounded-2xl p-6 mb-8">
-                                            <p className="text-white/50 text-[10px] uppercase tracking-widest font-bold mb-1">Estimated Total</p>
-                                            <p className="text-3xl text-white font-black italic">₹{calculateTotal()}</p>
-                                            <p className="text-white/30 text-[9px] mt-2">{selectedServices.length} services selected</p>
-                                        </div>
-                                    )}
-
-                                    <div className="flex items-center justify-center gap-6 text-slate-300">
-                                        <div className="flex flex-col items-center">
-                                            <span className="text-slate-800 font-black text-lg leading-none italic">12Y+</span>
-                                            <span className="text-[8px] font-bold uppercase tracking-widest">Exp.</span>
-                                        </div>
-                                        <div className="w-px h-8 bg-slate-100 italic"></div>
-                                        <div className="flex flex-col items-center">
-                                            <div className="flex text-yellow-400 gap-0.5 text-xs">
-                                                <FiStar /><FiStar /><FiStar /><FiStar /><FiStar />
-                                            </div>
-                                            <span className="text-[8px] font-bold uppercase tracking-widest">Rating</span>
-                                        </div>
-                                    </div>
-                                </motion.div>
-                            ) : (
-                                <div className="h-96 bg-slate-50 rounded-[3rem] animate-pulse"></div>
-                            )}
-                        </AnimatePresence>
-                    </div>
-
-                    {/* Booking Steps */}
-                    <div className="lg:col-span-2">
+                <div className="max-w-3xl mx-auto">
+                    {/* Booking Steps - Full Width Centered */}
+                    <div>
                         <div className="bg-white rounded-[3rem] p-10 md:p-16 border border-slate-100 shadow-xl shadow-slate-200/50 min-h-[600px] flex flex-col">
                             {/* Progress bar */}
                             <div className="flex items-center gap-4 mb-16 overflow-x-auto pb-4">
@@ -576,25 +529,39 @@ const BookingPage = () => {
                                         >
                                             <div>
                                                 <h3 className="text-3xl font-black text-slate-800 tracking-tighter italic uppercase mb-2">Step 04: Details.</h3>
-                                                <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Provide patient information for {doctor?.name.toLowerCase().startsWith('dr') ? doctor?.name : `Dr. ${doctor?.name}`}</p>
+                                                {/* Show selected doctor info inline */}
+                                                {doctor && (
+                                                    <div className="flex items-center gap-3 mt-3 p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
+                                                        <div className="w-10 h-10 rounded-xl overflow-hidden bg-emerald-200 flex-shrink-0">
+                                                            <img src={getDoctorImg(doctor)} alt={doctor.name} className="w-full h-full object-cover" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-xs font-black text-emerald-800 uppercase tracking-widest">
+                                                                {doctor.name?.toLowerCase().startsWith('dr') ? doctor.name : `Dr. ${doctor.name || 'Selected Doctor'}`}
+                                                            </p>
+                                                            <p className="text-[10px] text-emerald-600 font-bold">{doctor.specialization || 'Specialist'} • ₹{doctor.feesPerConsultation || 0} consultation</p>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-2"><span className="text-red-400">*</span> Required fields</p>
                                             </div>
                                             <div className="space-y-1">
-                                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Patient Name</label>
-                                                <input type="text" placeholder="Full Name" className="w-full h-14 bg-slate-50 rounded-2xl px-6 font-bold" value={patientName} onChange={e => setPatientName(e.target.value)} />
+                                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Patient Name <span className="text-red-400">*</span></label>
+                                                <input required type="text" placeholder="Full Name" className="w-full h-14 bg-slate-50 rounded-2xl px-6 font-bold border-2 border-transparent focus:border-primary outline-none transition-all" value={patientName} onChange={e => setPatientName(e.target.value)} />
                                             </div>
                                             <div className="space-y-1">
-                                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Mobile Number</label>
-                                                <input type="tel" placeholder="+91 XXXXX XXXXX" className="w-full h-14 bg-slate-50 rounded-2xl px-6 font-bold" value={mobileNumber} onChange={e => setMobileNumber(e.target.value)} />
+                                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Mobile Number <span className="text-red-400">*</span></label>
+                                                <input required type="tel" placeholder="+91 XXXXX XXXXX" className="w-full h-14 bg-slate-50 rounded-2xl px-6 font-bold border-2 border-transparent focus:border-primary outline-none transition-all" value={mobileNumber} onChange={e => setMobileNumber(e.target.value)} />
                                             </div>
                                             <div className="grid grid-cols-2 gap-4">
                                                 <div className="space-y-1">
-                                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Age</label>
-                                                    <input type="number" placeholder="Years" className="w-full h-14 bg-slate-50 rounded-2xl px-6 font-bold" value={age} onChange={e => setAge(e.target.value)} />
+                                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Age <span className="text-red-400">*</span></label>
+                                                    <input required type="number" placeholder="Years" className="w-full h-14 bg-slate-50 rounded-2xl px-6 font-bold border-2 border-transparent focus:border-primary outline-none transition-all" value={age} onChange={e => setAge(e.target.value)} />
                                                 </div>
                                                 <div className="space-y-1">
-                                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Gender</label>
-                                                    <select className="w-full h-14 bg-slate-50 rounded-2xl px-6 font-bold" value={gender} onChange={e => setGender(e.target.value)}>
-                                                        <option value="">Select</option>
+                                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Gender <span className="text-red-400">*</span></label>
+                                                    <select required className="w-full h-14 bg-slate-50 rounded-2xl px-6 font-bold border-2 border-transparent focus:border-primary outline-none transition-all" value={gender} onChange={e => setGender(e.target.value)}>
+                                                        <option value="">Select Gender</option>
                                                         <option value="Male">Male</option>
                                                         <option value="Female">Female</option>
                                                         <option value="Other">Other</option>
@@ -603,7 +570,7 @@ const BookingPage = () => {
                                             </div>
                                             <div className="space-y-1">
                                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Permanent Address</label>
-                                                <input type="text" placeholder="Full Address" className="w-full h-14 bg-slate-50 rounded-2xl px-6 font-bold" value={address} onChange={e => setAddress(e.target.value)} />
+                                                <input type="text" placeholder="Full Address" className="w-full h-14 bg-slate-50 rounded-2xl px-6 font-bold border-2 border-transparent focus:border-primary outline-none transition-all" value={address} onChange={e => setAddress(e.target.value)} />
                                             </div>
                                             <div className="space-y-1">
                                                 <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Describe Your Problem</label>

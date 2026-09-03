@@ -38,5 +38,13 @@ export const services = [
         price: 15,
         duration: '15 mins',
         icon: 'FiDroplet'
+    },
+    {
+        id: 'svc-other',
+        name: 'Other / Custom',
+        description: 'Any other service or consultation type not listed above.',
+        price: 0,
+        duration: 'Varies',
+        icon: 'FiActivity'
     }
 ];
