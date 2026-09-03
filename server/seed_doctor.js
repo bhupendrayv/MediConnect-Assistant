@@ -102,7 +102,7 @@ const seedDoctor = async () => {
         ];
 
         // Insert all doctors
-        await User.insertMany(doctors);
+        await User.insertMany(doctors.map(doctor => ({ ...doctor, role: 'doctor' })));
         console.log(`Successfully created ${doctors.length} diverse doctor profiles`);
 
         mongoose.connection.close();

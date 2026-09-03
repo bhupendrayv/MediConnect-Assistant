@@ -507,8 +507,11 @@ const rescheduleAppointmentController = async (req, res) => {
 const getPublicDoctorsController = async (req, res) => {
     try {
         const doctors = await User.find({
-            isDoctor: true,
-            status: 'approved'
+            $or: [
+                { status: 'approved' },
+                { status: { $exists: false }, isDoctor: true }
+            ],
+            $and: [{ $or: [{ role: 'doctor' }, { isDoctor: true }] }]
         }).select('-password');
 
         res.status(200).send({

@@ -39,10 +39,17 @@ app.use(cors({
     origin: function (origin, callback) {
         // Allow requests with no origin (e.g. mobile apps, curl, Postman)
         if (!origin) return callback(null, true);
-        if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes('*') || process.env.NODE_ENV !== 'production') {
+        
+        // Allow configured origins or any vercel.app domain preview/production
+        if (
+            allowedOrigins.indexOf(origin) !== -1 ||
+            allowedOrigins.includes('*') ||
+            origin.endsWith('.vercel.app') ||
+            process.env.NODE_ENV !== 'production'
+        ) {
             return callback(null, true);
         }
-        return callback(null, true); // Allow all in local/development mode
+        return callback(null, true);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],

@@ -3,16 +3,9 @@ import axios from 'axios';
 // Create a dedicated Axios instance
 // Check if we are in production (you can also use import.meta.env.PROD)
 // Check if we are in production (you can also use import.meta.env.PROD)
-const isProduction = import.meta.env.MODE === 'production';
-
-let baseURL = import.meta.env.VITE_SERVER_URL || '/api/v1';
-
-// If running in development and no server URL is provided, use the local proxy
-if (import.meta.env.DEV && !import.meta.env.VITE_SERVER_URL) {
-    baseURL = 'http://localhost:8082/api/v1';
-}
-
-// baseURL is set above based on environment
+let rawBaseURL = import.meta.env.VITE_SERVER_URL || (import.meta.env.DEV ? 'http://localhost:8082/api/v1' : '/api/v1');
+// Ensure no trailing slash
+const baseURL = rawBaseURL.endsWith('/') ? rawBaseURL.slice(0, -1) : rawBaseURL;
 
 const api = axios.create({
     baseURL: baseURL,
