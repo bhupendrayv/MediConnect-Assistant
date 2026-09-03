@@ -1,14 +1,3 @@
-// Override DNS to use public DNS servers — fixes SRV lookup failures
-// for MongoDB Atlas when ISP DNS blocks or fails to resolve _mongodb._tcp records
-const dns = require('dns');
-try {
-    dns.setDefaultResultOrder('ipv4first');
-    // Use Google DNS (8.8.8.8), Cloudflare (1.1.1.1), and OpenDNS as fallbacks
-    dns.setServers(['8.8.8.8', '8.8.4.4', '1.1.1.1', '208.67.222.222']);
-} catch (e) {
-    console.warn('DNS server configuration warning:', e.message);
-}
-
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -67,12 +56,7 @@ const connectDB = async (retryCount = 0) => {
     }
     console.log(`Attempting MongoDB connection (attempt ${retryCount + 1})...`);
     try {
-        await mongoose.connect(process.env.MONGO_URI, {
-            family: 4,                          // Force IPv4 — avoids IPv6 DNS issues
-            serverSelectionTimeoutMS: 30000,    // 30s to find a server
-            connectTimeoutMS: 30000,            // 30s socket connect timeout
-            socketTimeoutMS: 45000,             // 45s socket operation timeout
-        });
+        await mongoose.connect(process.env.MONGO_URI);
         console.log('✅ MongoDB Connected Successfully');
     } catch (err) {
         console.error(`❌ MongoDB Connection Error (attempt ${retryCount + 1}):`, err.message);
