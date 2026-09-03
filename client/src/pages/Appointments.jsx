@@ -77,6 +77,11 @@ const Appointments = () => {
 
     useEffect(() => {
         getAppointments();
+        // Poll for status changes every 4 seconds in real-time
+        const interval = setInterval(() => {
+            getAppointments();
+        }, 4000);
+        return () => clearInterval(interval);
     }, []);
 
     const handleCancel = async (apptId) => {

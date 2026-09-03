@@ -134,7 +134,57 @@ const loginController = async (req, res) => {
     }
 };
 
+// Dedicated Doctor Password Reset Controller (Allows password recovery for doctor accounts)
+const doctorForgotPasswordController = async (req, res) => {
+    try {
+        const { email, newPassword } = req.body;
+        if (!email || !newPassword) {
+            return res.status(400).send({
+                success: false,
+                message: 'Email and new password are required'
+            });
+        }
+
+        if (newPassword.length < 6) {
+            return res.status(400).send({
+                success: false,
+                message: 'New password must be at least 6 characters long'
+            });
+        }
+
+        const normalizedEmail = email.toLowerCase().trim();
+        const doctor = await User.findOne({
+            email: normalizedEmail,
+            $or: [{ role: 'doctor' }, { isDoctor: true }]
+        });
+
+        if (!doctor) {
+            return res.status(404).send({
+                success: false,
+                message: 'No registered doctor found with this email address.'
+            });
+        }
+
+        doctor.password = newPassword;
+        await doctor.save();
+
+        res.status(200).send({
+            success: true,
+            message: 'Password reset successfully! You can now log in with your new password.'
+        });
+    } catch (error) {
+        console.error('Doctor Forgot Password Error:', error);
+        res.status(500).send({
+            success: false,
+            message: 'Error resetting password',
+            error: error.message
+        });
+    }
+};
+
 module.exports = {
     loginController,
-    registerController
+    registerController,
+    doctorForgotPasswordController
 };
+

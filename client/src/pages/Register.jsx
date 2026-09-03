@@ -63,35 +63,17 @@ const Register = () => {
 
                 {/* Right Side - Form */}
                 <div className="p-12 md:w-2/3">
-                    <div className="mb-10 text-center md:text-left">
-                        <h1 className="text-3xl font-black text-slate-800 tracking-tight mb-2">Create Account</h1>
-                        <p className="text-slate-400 font-medium">Please enter your details to start.</p>
+                    <div className="mb-8 text-center md:text-left">
+                        <span className="text-[10px] font-black uppercase tracking-[0.25em] text-primary bg-primary/10 px-3 py-1 rounded-full border border-primary/20">
+                            Patient Registration
+                        </span>
+                        <h1 className="text-3xl font-black text-slate-800 tracking-tight mt-3 mb-1">Create Patient Account</h1>
+                        <p className="text-slate-400 font-medium text-xs">Enter your details to schedule and manage medical consultations.</p>
                     </div>
 
                     <Form layout="vertical" form={form} onFinish={onFinishHandler} className="flex flex-col gap-2">
-                        {/* Role Selection */}
-                        <div className="mb-8">
-                            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-4 block">Select Your Role</label>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div
-                                    onClick={() => setSelectedRole('patient')}
-                                    className={`cursor-pointer p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${selectedRole === 'patient' ? 'border-primary bg-emerald-50' : 'border-slate-100 hover:border-slate-200'}`}
-                                >
-                                    <FiUser className={`text-2xl ${selectedRole === 'patient' ? 'text-primary' : 'text-slate-400'}`} />
-                                    <span className={`text-xs font-bold ${selectedRole === 'patient' ? 'text-primary' : 'text-slate-400'}`}>Patient</span>
-                                </div>
-                                <div
-                                    onClick={() => setSelectedRole('doctor')}
-                                    className={`cursor-pointer p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${selectedRole === 'doctor' ? 'border-primary bg-emerald-50' : 'border-slate-100 hover:border-slate-200'}`}
-                                >
-                                    <FiPlusSquare className={`text-2xl ${selectedRole === 'doctor' ? 'text-primary' : 'text-slate-400'}`} />
-                                    <span className={`text-xs font-bold ${selectedRole === 'doctor' ? 'text-primary' : 'text-slate-400'}`}>Doctor</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <Form.Item label={<span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Full Name</span>} name="name" rules={[{ required: true }]}>
-                            <Input prefix={<FiUser className="text-slate-300 mr-2" />} className="h-14 rounded-2xl border-slate-100 hover:border-primary focus:border-primary transition-all font-medium text-slate-700 bg-slate-50/50" />
+                        <Form.Item label={<span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Full Name</span>} name="name" rules={[{ required: true, message: 'Please enter your full name' }]}>
+                            <Input prefix={<FiUser className="text-slate-300 mr-2" />} placeholder="e.g. John Doe" className="h-14 rounded-2xl border-slate-100 hover:border-primary focus:border-primary transition-all font-medium text-slate-700 bg-slate-50/50" />
                         </Form.Item>
 
                         <Form.Item label={<span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Email Address</span>} name="email" rules={[{ required: true }]}>

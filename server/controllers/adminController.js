@@ -337,6 +337,79 @@ const broadcastNotificationController = async (req, res) => {
     }
 };
 
+// Admin Update Appointment Status (Approve / Reject / Complete)
+const updateAppointmentStatusByAdminController = async (req, res) => {
+    try {
+        const { appointmentId, status } = req.body;
+        if (!appointmentId || !status) {
+            return res.status(400).send({
+                success: false,
+                message: 'appointmentId and status are required'
+            });
+        }
+
+        const appointment = await Appointment.findByIdAndUpdate(
+            appointmentId,
+            { status },
+            { new: true }
+        );
+
+        if (!appointment) {
+            return res.status(404).send({
+                success: false,
+                message: 'Appointment not found'
+            });
+        }
+
+        // Send Notification to Patient
+        const patient = await User.findById(appointment.userId);
+        if (patient) {
+            if (!patient.unseenNotifications) patient.unseenNotifications = [];
+            patient.unseenNotifications.push({
+                type: 'appointment-status-updated',
+                message: `Your appointment [${appointment.appointmentCode}] with Dr. ${appointment.doctorInfo?.name} has been ${status} by Hospital Administration.`,
+                data: {
+                    appointmentId: appointment._id,
+                    status,
+                    onClickPath: '/appointments'
+                },
+                createdAt: new Date()
+            });
+            await patient.save();
+        }
+
+        // Send Notification to Doctor
+        const doctor = await User.findById(appointment.doctorId);
+        if (doctor) {
+            if (!doctor.unseenNotifications) doctor.unseenNotifications = [];
+            doctor.unseenNotifications.push({
+                type: 'appointment-status-updated',
+                message: `Appointment [${appointment.appointmentCode}] for ${appointment.userInfo?.name} has been marked ${status} by Administration.`,
+                data: {
+                    appointmentId: appointment._id,
+                    status,
+                    onClickPath: '/doctor-appointments'
+                },
+                createdAt: new Date()
+            });
+            await doctor.save();
+        }
+
+        res.status(200).send({
+            success: true,
+            message: `Appointment ${appointment.appointmentCode} marked as ${status}`,
+            data: appointment
+        });
+    } catch (error) {
+        console.error('Error in updateAppointmentStatusByAdminController:', error);
+        res.status(500).send({
+            success: false,
+            message: 'Error updating appointment status',
+            error: error.message
+        });
+    }
+};
+
 module.exports = {
     getAllUsersController,
     getAllDoctorsController,
@@ -346,6 +419,7 @@ module.exports = {
     updateSiteSettingsController,
     getAdminOverviewStatsController,
     getAllAppointmentsController,
+    updateAppointmentStatusByAdminController,
     broadcastNotificationController
 };
 

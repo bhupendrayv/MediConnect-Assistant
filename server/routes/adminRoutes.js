@@ -30,8 +30,9 @@ router.get('/getAllDoctors', authMiddleware, getAllDoctorsController);
 router.post('/addDoctor', authMiddleware, addDoctorController);
 router.post('/changeAccountStatus', authMiddleware, changeAccountStatusController);
 
-// Appointments Global Ledger
+// Appointments Global Ledger & Moderation
 router.get('/getAllAppointments', authMiddleware, getAllAppointmentsController);
+router.post('/updateAppointmentStatus', authMiddleware, updateAppointmentStatusByAdminController);
 
 // Notification Broadcast Route
 router.post('/broadcast-notification', authMiddleware, broadcastNotificationController);

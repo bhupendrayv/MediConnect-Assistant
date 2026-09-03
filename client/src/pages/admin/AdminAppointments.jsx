@@ -52,6 +52,28 @@ const AdminAppointments = () => {
         return appt.status === statusFilter;
     });
 
+    const handleStatusUpdate = async (appointmentId, status) => {
+        try {
+            const res = await api.post('/admin/updateAppointmentStatus', {
+                appointmentId,
+                status
+            }, {
+                headers: {
+                    Authorization: "Bearer " + localStorage.getItem('token')
+                }
+            });
+            if (res.data.success) {
+                message.success(res.data.message || `Appointment marked as ${status}`);
+                getAppointments();
+            } else {
+                message.error(res.data.message || 'Status update failed');
+            }
+        } catch (error) {
+            console.error('Update status error:', error);
+            message.error(error.response?.data?.message || 'Error updating appointment status');
+        }
+    };
+
     const columns = [
         {
             title: 'Code & Date',
@@ -74,6 +96,11 @@ const AdminAppointments = () => {
                 <div>
                     <div className="font-bold text-slate-800 text-xs">{info?.name || 'Guest Patient'}</div>
                     <div className="text-[11px] text-slate-400">{info?.mobileNumber || info?.email}</div>
+                    {info?.problem && (
+                        <div className="text-[10px] text-slate-500 italic mt-0.5 max-w-[150px] truncate">
+                            Symp: {info.problem}
+                        </div>
+                    )}
                 </div>
             )
         },
@@ -112,6 +139,30 @@ const AdminAppointments = () => {
                     </Tag>
                 );
             }
+        },
+        {
+            title: 'Actions',
+            dataIndex: 'actions',
+            render: (_, record) => (
+                <div className="flex items-center gap-2">
+                    {record.status !== 'approved' && record.status !== 'completed' && (
+                        <button
+                            onClick={() => handleStatusUpdate(record._id, 'approved')}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-3 py-1.5 rounded-xl shadow-sm transition-all"
+                        >
+                            Approve
+                        </button>
+                    )}
+                    {record.status !== 'rejected' && record.status !== 'cancelled' && (
+                        <button
+                            onClick={() => handleStatusUpdate(record._id, 'rejected')}
+                            className="bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs px-3 py-1.5 rounded-xl border border-red-200 transition-all"
+                        >
+                            Reject
+                        </button>
+                    )}
+                </div>
+            )
         }
     ];
 

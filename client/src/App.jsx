@@ -16,12 +16,13 @@ import DoctorAppointments from './pages/doctor/DoctorAppointments';
 import AIHelper from './pages/AIHelper';
 import VerifyAppointment from './pages/VerifyAppointment';
 import BloodBank from './pages/BloodBank';
-import Payments from './pages/Payments';
 import LandingPage from './pages/LandingPage';
 import SiteSettings from './pages/admin/SiteSettings';
 import AdminAppointments from './pages/admin/AdminAppointments';
 import AdminBloodRequests from './pages/admin/AdminBloodRequests';
 import AdminBroadcast from './pages/admin/AdminBroadcast';
+import AdminLogin from './pages/admin/AdminLogin';
+import DoctorLogin from './pages/doctor/DoctorLogin';
 import { FiActivity } from 'react-icons/fi';
 
 function App() {
@@ -111,6 +112,11 @@ function App() {
                         <BookingPage />
                     </ProtectedRoute>
                 } />
+                <Route path="/book-appointment" element={
+                    <ProtectedRoute>
+                        <BookingPage />
+                    </ProtectedRoute>
+                } />
                 <Route path="/appointments" element={
                     <ProtectedRoute>
                         <Appointments />
@@ -131,14 +137,29 @@ function App() {
                         <VerifyAppointment />
                     </ProtectedRoute>
                 } />
-                <Route path="/payments" element={
-                    <ProtectedRoute>
-                        <Payments />
-                    </ProtectedRoute>
-                } />
                 <Route path="/login" element={
                     <PublicRoute>
                         <Login />
+                    </PublicRoute>
+                } />
+                <Route path="/admin" element={
+                    <PublicRoute>
+                        <AdminLogin />
+                    </PublicRoute>
+                } />
+                <Route path="/admin/login" element={
+                    <PublicRoute>
+                        <AdminLogin />
+                    </PublicRoute>
+                } />
+                <Route path="/doctor" element={
+                    <PublicRoute>
+                        <DoctorLogin />
+                    </PublicRoute>
+                } />
+                <Route path="/doctor/login" element={
+                    <PublicRoute>
+                        <DoctorLogin />
                     </PublicRoute>
                 } />
                 <Route path="/register" element={

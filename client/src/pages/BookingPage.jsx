@@ -40,11 +40,27 @@ const BookingPage = () => {
     const [selectedServices, setSelectedServices] = useState([]);
     // State for Available Services (to allow price editing)
     const [availableServices, setAvailableServices] = useState([]);
+    // State for all available doctors in the hospital
+    const [allDoctors, setAllDoctors] = useState([]);
 
-
-    const getDoctorData = async () => {
+    const getAllDoctorsList = async () => {
         try {
-            const res = await axios.post('/api/v1/doctor/getDoctorById', { doctorId: params.doctorId }, {
+            const res = await axios.get('/api/v1/user/getAllDoctors', {
+                headers: { Authorization: "Bearer " + localStorage.getItem('token') }
+            });
+            if (res.data.success) {
+                setAllDoctors(res.data.data.filter(d => d.status === 'approved' || d.isAvailable !== false));
+            }
+        } catch (err) {
+            console.error('Error fetching all doctors:', err);
+        }
+    };
+
+    const getDoctorData = async (targetDocId) => {
+        const idToFetch = targetDocId || params.doctorId;
+        if (!idToFetch) return;
+        try {
+            const res = await axios.post('/api/v1/doctor/getDoctorById', { doctorId: idToFetch }, {
                 headers: {
                     Authorization: "Bearer " + localStorage.getItem('token'),
                 },
@@ -59,6 +75,20 @@ const BookingPage = () => {
             console.log(error);
         }
     };
+
+    useEffect(() => {
+        getAllDoctorsList();
+        if (params.doctorId) {
+            getDoctorData(params.doctorId);
+        }
+    }, [params.doctorId]);
+
+    // Auto-select first doctor if none specified
+    useEffect(() => {
+        if (!params.doctorId && !doctor && allDoctors.length > 0) {
+            getDoctorData(allDoctors[0]._id);
+        }
+    }, [allDoctors, params.doctorId, doctor]);
 
     const handleUpdateServicePrice = (serviceId, newPrice) => {
         // Update in available list
@@ -264,12 +294,60 @@ const BookingPage = () => {
     return (
         <Layout>
             <div className="p-4 md:p-8 max-w-6xl mx-auto">
-                <div className="mb-12">
-                    <button onClick={() => navigate(-1)} className="mb-6 text-slate-400 font-bold text-xs uppercase tracking-widest flex items-center gap-2 hover:text-primary transition-colors">
+                <div className="mb-8">
+                    <button onClick={() => navigate(-1)} className="mb-4 text-slate-400 font-bold text-xs uppercase tracking-widest flex items-center gap-2 hover:text-primary transition-colors">
                         ← Back to Specialists
                     </button>
                     <h1 className="text-4xl font-black text-slate-800 tracking-tight italic uppercase leading-none mb-2">Reserve Your Slot.</h1>
-                    <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Follow the steps to confirm your consultation</p>
+                    <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mb-6">Select a specialist and follow the steps to confirm your consultation</p>
+
+                    {/* Interactive Doctor Selection Bar */}
+                    {allDoctors.length > 0 && (
+                        <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm mb-8">
+                            <div className="flex items-center justify-between mb-3 px-2">
+                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                                    Step 1: Choose Your Doctor ({allDoctors.length} Available)
+                                </span>
+                            </div>
+                            <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-none">
+                                {allDoctors.map((doc) => {
+                                    const isSelected = doctor?._id === doc._id;
+                                    return (
+                                        <div
+                                            key={doc._id}
+                                            onClick={() => {
+                                                getDoctorData(doc._id);
+                                            }}
+                                            className={`cursor-pointer flex-shrink-0 flex items-center gap-3 p-3.5 rounded-2xl border-2 transition-all min-w-[220px] ${
+                                                isSelected
+                                                    ? 'border-primary bg-emerald-50/70 shadow-md shadow-primary/10'
+                                                    : 'border-slate-100 hover:border-slate-300 bg-slate-50/50'
+                                            }`}
+                                        >
+                                            <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-200 flex-shrink-0">
+                                                <img
+                                                    src={getDoctorImg(doc)}
+                                                    alt={doc.name}
+                                                    className="w-full h-full object-cover"
+                                                />
+                                            </div>
+                                            <div className="text-left overflow-hidden">
+                                                <p className={`text-xs font-black truncate leading-tight ${isSelected ? 'text-primary' : 'text-slate-800'}`}>
+                                                    {doc.name?.toLowerCase().startsWith('dr') ? doc.name : `Dr. ${doc.name}`}
+                                                </p>
+                                                <p className="text-[10px] text-slate-500 font-bold truncate">
+                                                    {doc.specialization || 'Specialist'}
+                                                </p>
+                                                <p className="text-[10px] font-black text-slate-700 mt-0.5">
+                                                    ₹{doc.feesPerConsultation || 500}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 <div className="grid lg:grid-cols-3 gap-12 items-start">
