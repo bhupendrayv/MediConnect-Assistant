@@ -129,6 +129,10 @@ const BookingPage = () => {
                 return message.error("User session not found. Please refresh the page and try again.");
             }
 
+            if (!doctor || !doctor._id) {
+                return message.error("Please select a doctor before booking.");
+            }
+
             if (!date || !time || !age || !gender || !address || !problem || !patientName || !mobileNumber) {
                 return message.error("Please provide all patient details including mobile number");
             }
@@ -141,7 +145,7 @@ const BookingPage = () => {
             // 1. Create Appointment (pending status)
             const res = await axios.post('/api/v1/user/book-appointment',
                 {
-                    doctorId: params.doctorId,
+                    doctorId: doctor._id,  // Always use selected doctor state, NOT params.doctorId
                     userId: user._id,
                     doctorInfo: {
                         name: doctor.name,
@@ -209,9 +213,8 @@ const BookingPage = () => {
         }
     };
 
-    useEffect(() => {
-        getDoctorData();
-    }, [getDoctorData]);
+    // NOTE: Initial load is handled by the first useEffect above (params.doctorId).
+    // Removed duplicate call that caused stale closure loop.
 
     // Helper to get image based on gender
     const getDoctorImg = (doc) => {
