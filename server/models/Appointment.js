@@ -69,6 +69,14 @@ const appointmentSchema = new mongoose.Schema({
     stripeSessionId: {
         type: String,
     },
+    stripePaymentIntentId: {
+        type: String,
+    },
+    paymentMethod: {
+        type: String,
+        enum: ['cash', 'stripe', 'online'],
+        default: 'cash',
+    },
     transactionId: {
         type: String,
         unique: true,
@@ -76,8 +84,15 @@ const appointmentSchema = new mongoose.Schema({
     },
     paymentStatus: {
         type: String,
-        enum: ['pending', 'paid', 'failed'],
+        enum: ['pending', 'pending_cash', 'paid', 'failed'],
         default: 'pending'
+    },
+    approvedBy: {
+        type: String,
+        default: null
+    },
+    paidAt: {
+        type: Date
     },
     doctorNotes: {
         type: String,

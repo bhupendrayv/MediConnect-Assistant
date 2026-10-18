@@ -191,18 +191,27 @@ const Appointments = () => {
         {
             title: 'Payment',
             key: 'payment',
-            render: (_, record) => (
-                <div className="flex flex-col">
-                    {record.paymentStatus === 'paid' ? (
-                        <Tag color="green" className="w-fit mb-1 font-black uppercase text-[9px]">PAID</Tag>
-                    ) : (
-                        <Tag color="orange" className="w-fit mb-1 font-black uppercase text-[9px]">PENDING</Tag>
-                    )}
-                    {record.transactionId && (
-                        <span className="text-[10px] text-slate-400 font-mono font-bold">{record.transactionId}</span>
-                    )}
-                </div>
-            )
+            render: (_, record) => {
+                const isPaid = record.paymentStatus === 'paid';
+                const methodStr = record.paymentMethod === 'cash' ? '💵 Cash' : '💳 Online';
+                return (
+                    <div className="flex flex-col">
+                        <div className="flex items-center gap-1.5 mb-1">
+                            {isPaid ? (
+                                <Tag color="green" className="m-0 font-black uppercase text-[9px]">PAID</Tag>
+                            ) : (
+                                <Tag color={record.paymentMethod === 'cash' ? 'volcano' : 'orange'} className={`m-0 font-black uppercase text-[9px] ${record.paymentMethod === 'cash' ? 'animate-pulse' : ''}`}>
+                                    {record.paymentMethod === 'cash' ? 'CASH PENDING' : 'PENDING'}
+                                </Tag>
+                            )}
+                            <Tag color="default" className="m-0 font-bold text-[9px] border-slate-200 text-slate-500">{methodStr}</Tag>
+                        </div>
+                        {record.transactionId && (
+                            <span className="text-[10px] text-slate-400 font-mono font-bold">{record.transactionId}</span>
+                        )}
+                    </div>
+                );
+            }
         },
         {
             title: 'Status',

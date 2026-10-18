@@ -38,6 +38,8 @@ const BookingPage = () => {
 
     // New State for Service Selection
     const [selectedServices, setSelectedServices] = useState([]);
+    // State for Payment Method ('cash' or 'stripe')
+    const [paymentMethod, setPaymentMethod] = useState('cash');
     // State for Available Services - initialize with default services so Step 1 is never blank
     const [availableServices, setAvailableServices] = useState(services);
     // State for all available doctors in the hospital
@@ -215,7 +217,8 @@ const BookingPage = () => {
                         name: s.name || 'Service',
                         price: s.price || 0
                     })),
-                    paymentStatus: 'paid'
+                    paymentMethod,
+                    paymentStatus: paymentMethod === 'cash' ? 'pending_cash' : 'pending'
                 },
                 {
                     headers: {
@@ -228,13 +231,36 @@ const BookingPage = () => {
                 return message.error(res.data.message || 'Booking initiation failed.');
             }
 
-            setAppointmentCode(res.data.data.appointmentCode);
-            setBookedAppointment(res.data.data);
-            
-            // 2. Dummy Payment Success - Proceed directly to success screen
-            dispatch(hideLoading());
-            setStep(6);
-            message.success('Payment successful! Booking confirmed.');
+            const appointmentData = res.data.data;
+            setAppointmentCode(appointmentData.appointmentCode);
+            setBookedAppointment(appointmentData);
+
+            if (paymentMethod === 'stripe') {
+                // Online Payment: redirect to Stripe Checkout to enter Debit/Credit Card details
+                const totalAmount = appointmentData.totalAmount || (Number(activeDoctor.feesPerConsultation) || 500);
+                const sessionRes = await api.post('/user/create-stripe-session', {
+                    amount: totalAmount,
+                    appointmentId: appointmentData._id,
+                    doctorName: activeDoctor.name
+                }, {
+                    headers: {
+                        Authorization: "Bearer " + localStorage.getItem('token'),
+                    }
+                });
+
+                dispatch(hideLoading());
+                if (sessionRes.data.success && sessionRes.data.url) {
+                    message.loading('Redirecting to secure card payment checkout...', 1.5);
+                    window.location.href = sessionRes.data.url;
+                } else {
+                    message.error(sessionRes.data.message || 'Failed to create payment session. Please try again.');
+                }
+            } else {
+                // Cash Payment Confirmation - Proceed directly to confirmation screen
+                dispatch(hideLoading());
+                setStep(6);
+                message.success('Booking confirmed! Please pay cash at the clinic counter.');
+            }
 
         } catch (error) {
             dispatch(hideLoading());
@@ -327,25 +353,25 @@ const BookingPage = () => {
 
     return (
         <Layout>
-            <div className="p-4 md:p-8 max-w-6xl mx-auto">
-                <div className="mb-8">
-                    <button onClick={() => navigate(-1)} className="mb-4 text-slate-400 font-bold text-xs uppercase tracking-widest flex items-center gap-2 hover:text-primary transition-colors">
+            <div className="p-3 md:p-4 max-w-6xl mx-auto relative">
+                <div className="mb-3">
+                    <button onClick={() => navigate(-1)} className="mb-2 text-slate-400 text-xs flex items-center gap-2 hover:text-primary transition-colors">
                         ← Back to Specialists
                     </button>
-                    <h1 className="text-4xl font-black text-slate-800 tracking-tight italic uppercase leading-none mb-2">Reserve Your Slot.</h1>
-                    <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mb-6">Select a specialist and follow the steps to confirm your consultation</p>
+                    <h1 className="text-2xl text-slate-800 leading-none mb-1">Reserve Your Slot</h1>
+                    <p className="text-slate-400 text-xs mb-3">Select a specialist and follow the steps to confirm your consultation</p>
 
                     {/* Department & Doctor Selection Section */}
-                    <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm mb-8 space-y-6">
+                    <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm mb-4 space-y-3">
                         {/* 1. Department Selection (Required) */}
                         <div>
-                            <div className="flex items-center justify-between mb-3 px-1">
-                                <span className="text-xs font-black uppercase tracking-widest text-slate-800 flex items-center gap-2">
+                            <div className="flex items-center justify-between mb-2 px-1">
+                                <span className="text-xs text-slate-800 flex items-center gap-2">
                                     <span className="w-2 h-2 rounded-full bg-primary inline-block"></span>
                                     1. Select Department <span className="text-red-500">*</span>
                                 </span>
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                    {availableDepartments.length} Departments Available
+                                <span className="text-[10px] text-slate-400">
+                                    {availableDepartments.length} Departments
                                 </span>
                             </div>
                             <div className="flex gap-2.5 overflow-x-auto pb-2 scrollbar-none">
@@ -363,9 +389,9 @@ const BookingPage = () => {
                                                     setDoctor(null);
                                                 }
                                             }}
-                                            className={`flex-shrink-0 px-4 py-2.5 rounded-2xl text-xs font-black tracking-wide transition-all border-2 flex items-center gap-2 ${
+                                            className={`flex-shrink-0 px-3 py-2 rounded-xl text-xs transition-all border flex items-center gap-2 ${
                                                 isSelected
-                                                    ? 'border-primary bg-primary text-white shadow-lg shadow-emerald-500/20 scale-105'
+                                                    ? 'border-primary bg-primary text-white shadow-sm'
                                                     : 'border-slate-100 bg-slate-50/70 text-slate-600 hover:border-slate-200 hover:bg-slate-100'
                                             }`}
                                         >
@@ -381,10 +407,10 @@ const BookingPage = () => {
 
                         {/* 2. Doctor Selection (Optional) */}
                         <div>
-                            <div className="flex items-center justify-between mb-3 px-1">
-                                <span className="text-xs font-black uppercase tracking-widest text-slate-800 flex items-center gap-2">
+                            <div className="flex items-center justify-between mb-2 px-1">
+                                <span className="text-xs text-slate-800 flex items-center gap-2">
                                     <span className="w-2 h-2 rounded-full bg-amber-400 inline-block"></span>
-                                    2. Select Doctor <span className="text-[10px] font-bold text-slate-400 lowercase">(optional - auto-assigned if unselected)</span>
+                                    2. Select Doctor <span className="text-[10px] text-slate-400">(optional)</span>
                                 </span>
                                 {doctor && (
                                     <button
@@ -468,15 +494,29 @@ const BookingPage = () => {
                 <div className="max-w-3xl mx-auto">
                     {/* Booking Steps - Full Width Centered */}
                     <div>
-                        <div className="bg-white rounded-[3rem] p-10 md:p-16 border border-slate-100 shadow-xl shadow-slate-200/50 min-h-[600px] flex flex-col">
-                            {/* Progress bar */}
-                            <div className="flex items-center gap-4 mb-16 overflow-x-auto pb-4">
+                        <div className="bg-white/95 backdrop-blur-xl rounded-2xl p-4 md:p-6 border border-white/80 shadow-lg flex flex-col relative overflow-hidden">
+                            {/* Inner ambient glow */}
+                            <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-bl from-emerald-100/40 via-teal-50/20 to-transparent rounded-full blur-3xl pointer-events-none" />
+
+                            {/* Progress bar with radiant lighting */}
+                            {/* Compact Progress Bar */}
+                            <div className="flex items-center gap-2 mb-5 overflow-x-auto pb-1">
                                 {[1, 2, 3, 4, 5, 6].map(i => (
                                     <div key={i} className="contents">
-                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm italic flex-shrink-0 transition-all ${step >= i ? 'bg-primary text-white shadow-lg shadow-emerald-200 scale-110' : 'bg-slate-100 text-slate-300'}`}>
-                                            {step > i ? <FiCheckCircle /> : `0${i}`}
+                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs flex-shrink-0 transition-all ${
+                                            step === i 
+                                                ? 'bg-emerald-500 text-white shadow-sm' 
+                                                : step > i 
+                                                    ? 'bg-emerald-600 text-white' 
+                                                    : 'bg-slate-100 text-slate-400'
+                                        }`}>
+                                            {step > i ? <FiCheckCircle className="text-sm" /> : `0${i}`}
                                         </div>
-                                        {i < 6 && <div className={`flex-1 h-1 rounded-full min-w-[20px] ${step > i ? 'bg-primary' : 'bg-slate-100'}`}></div>}
+                                        {i < 6 && (
+                                            <div className={`flex-1 h-1 rounded-full min-w-[12px] transition-all ${
+                                                step > i ? 'bg-emerald-500' : 'bg-slate-100'
+                                            }`} />
+                                        )}
                                     </div>
                                 ))}
                             </div>
@@ -490,24 +530,24 @@ const BookingPage = () => {
                                             initial={{ opacity: 0, y: 10 }}
                                             animate={{ opacity: 1, y: 0 }}
                                             exit={{ opacity: 0, y: -10 }}
-                                            className="space-y-10"
+                                            className="space-y-4"
                                         >
                                             <div>
-                                                <h3 className="text-3xl font-black text-slate-800 tracking-tighter italic uppercase mb-2">Step 01: Services.</h3>
-                                                <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Customize your appointment experience.</p>
+                                                <h3 className="text-xl text-slate-800 mb-1">Step 01: Services</h3>
+                                                <p className="text-slate-400 text-xs">Select services for your consultation.</p>
                                             </div>
 
                                             <ServiceSelector
                                                 services={availableServices}
                                                 selectedServices={selectedServices}
                                                 onToggleService={handleToggleService}
-                                                onUpdateService={handleUpdateServicePrice}
+                                                onUpdateService={(user?.role === 'admin' || user?.isAdmin) ? handleUpdateServicePrice : undefined}
                                             />
 
                                             <button
                                                 disabled={!selectedDepartment || selectedServices.length === 0}
                                                 onClick={() => setStep(2)}
-                                                className="w-full h-16 bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-widest italic flex items-center justify-center gap-4 hover:bg-emerald-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-xl shadow-emerald-600/20"
+                                                className="w-full h-12 bg-emerald-500 text-white rounded-xl flex items-center justify-center gap-3 hover:bg-emerald-600 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-md text-sm"
                                             >
                                                 Next: Select Date <FiArrowRight />
                                             </button>
@@ -521,24 +561,24 @@ const BookingPage = () => {
                                             initial={{ opacity: 0, y: 10 }}
                                             animate={{ opacity: 1, y: 0 }}
                                             exit={{ opacity: 0, y: -10 }}
-                                            className="space-y-10"
+                                            className="space-y-4"
                                         >
                                             <div>
-                                                <h3 className="text-3xl font-black text-slate-800 tracking-tighter italic uppercase mb-2">Step 02: Date.</h3>
-                                                <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">When would you like to visit?</p>
+                                                <h3 className="text-xl text-slate-800 mb-1">Step 02: Date</h3>
+                                                <p className="text-slate-400 text-xs">When would you like to visit?</p>
                                             </div>
                                             <DatePicker
                                                 format="DD-MM-YYYY"
-                                                className="w-full h-20 rounded-[1.5rem] border-slate-100 text-xl font-black italic px-8 hover:border-primary focus:border-primary transition-all bg-slate-50/50"
-                                                placeholder="SELECT PREFERRED DATE"
+                                                className="w-full h-14 rounded-xl border-slate-100 text-sm px-6 hover:border-primary focus:border-primary transition-all bg-slate-50/50"
+                                                placeholder="Select preferred date"
                                                 onChange={(val) => setDate(val ? dayjs(val).format('DD-MM-YYYY') : null)}
                                             />
-                                            <div className="flex gap-4">
-                                                <button onClick={() => setStep(1)} className="h-16 px-8 border-2 border-slate-100 rounded-2xl font-black uppercase text-xs tracking-widest italic text-slate-400 hover:border-slate-200 transition-all">Back</button>
+                                            <div className="flex gap-3">
+                                                <button onClick={() => setStep(1)} className="h-12 px-6 border border-slate-100 rounded-xl text-xs text-slate-400 hover:border-slate-200 transition-all">Back</button>
                                                 <button
                                                     disabled={!date}
                                                     onClick={() => setStep(3)}
-                                                    className="flex-1 h-16 bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-widest italic flex items-center justify-center gap-4 hover:bg-emerald-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-xl shadow-emerald-600/20"
+                                                    className="flex-1 h-12 bg-emerald-500 text-white rounded-xl flex items-center justify-center gap-3 hover:bg-emerald-600 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-md text-sm"
                                                 >
                                                     Next: Select Time <FiArrowRight />
                                                 </button>
@@ -553,52 +593,51 @@ const BookingPage = () => {
                                             initial={{ opacity: 0, y: 10 }}
                                             animate={{ opacity: 1, y: 0 }}
                                             exit={{ opacity: 0, y: -10 }}
-                                            className="space-y-10"
+                                            className="space-y-4"
                                         >
                                             <div>
-                                                <h3 className="text-4xl font-black text-slate-800 tracking-tighter italic uppercase mb-2">STEP 03: TIME.</h3>
-                                                <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">CHOOSE AN AVAILABLE SLOT FOR {date}</p>
+                                                <h3 className="text-xl text-slate-800 mb-1">Step 03: Time</h3>
+                                                <p className="text-slate-400 text-xs">Choose an available slot for {date}</p>
                                             </div>
 
-                                            <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+                                            <div className="grid grid-cols-3 md:grid-cols-3 gap-2">
                                                 {timeSlots.map(t => (
                                                     <div
                                                         key={t}
                                                         onClick={() => setTime(t)}
-                                                        className={`p-8 rounded-[1.5rem] border-2 cursor-pointer text-center transition-all ${time === t
-                                                            ? 'border-emerald-500 bg-emerald-50 text-emerald-600 shadow-xl shadow-emerald-100 scale-105'
-                                                            : 'border-slate-100 bg-slate-50/50 text-slate-400 hover:border-slate-200 hover:bg-white'
+                                                        className={`py-3 px-2 rounded-xl border cursor-pointer text-center transition-all ${time === t
+                                                            ? 'border-emerald-500 bg-emerald-50 text-emerald-600 shadow-sm'
+                                                            : 'border-slate-100 bg-slate-50/50 text-slate-500 hover:border-slate-200 hover:bg-white'
                                                             }`}
                                                     >
-                                                        <FiClock className={`mx-auto mb-4 text-xl ${time === t ? 'text-emerald-500' : 'text-slate-300'}`} />
-                                                        <span className="text-xl font-black italic uppercase">{t}</span>
+                                                        <FiClock className={`mx-auto mb-1 text-sm ${time === t ? 'text-emerald-500' : 'text-slate-300'}`} />
+                                                        <span className="text-sm">{t}</span>
                                                     </div>
                                                 ))}
                                             </div>
 
                                             {/* Manual Time Picker Section */}
-                                            <div className="p-8 bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-200 text-center">
-                                                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 mb-6 italic">OR CHOOSE CUSTOM TIME</p>
-                                                <div className="flex flex-col items-center gap-4">
+                                            <div className="p-4 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-center">
+                                                <p className="text-[10px] text-slate-400 mb-3">Or choose custom time</p>
+                                                <div className="flex flex-col items-center gap-2">
                                                     <TimePicker
                                                         format="hh:mm A"
                                                         use12Hours
-                                                        className="w-full max-w-[300px] h-16 rounded-2xl border-slate-200 text-xl font-black italic px-6 shadow-sm"
-                                                        placeholder="PICK ANOTHER TIME"
+                                                        className="w-full max-w-[250px] h-10 rounded-xl border-slate-200 text-sm px-4"
+                                                        placeholder="Pick another time"
                                                         onChange={(val) => setTime(val ? dayjs(val).format('hh:mm A') : null)}
                                                     />
-                                                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest italic">Supports AM and PM selection</p>
                                                 </div>
                                             </div>
 
-                                            <div className="flex gap-4">
-                                                <button onClick={() => setStep(2)} className="h-20 px-10 border-2 border-slate-100 rounded-3xl font-black uppercase text-xs tracking-widest italic text-slate-400 hover:border-slate-200 transition-all">BACK</button>
+                                            <div className="flex gap-3">
+                                                <button onClick={() => setStep(2)} className="h-12 px-6 border border-slate-100 rounded-xl text-xs text-slate-400 hover:border-slate-200 transition-all">Back</button>
                                                 <button
                                                     disabled={!time}
                                                     onClick={() => setStep(4)}
-                                                    className="flex-1 h-20 bg-emerald-500 text-white rounded-3xl font-black uppercase tracking-tight italic flex items-center justify-center gap-4 hover:bg-emerald-600 shadow-2xl shadow-emerald-500/20 transition-all text-lg"
+                                                    className="flex-1 h-12 bg-emerald-500 text-white rounded-xl flex items-center justify-center gap-3 hover:bg-emerald-600 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-md text-sm"
                                                 >
-                                                    NEXT: DETAILS <FiArrowRight />
+                                                    Next: Details <FiArrowRight />
                                                 </button>
                                             </div>
                                         </motion.div>
@@ -611,12 +650,12 @@ const BookingPage = () => {
                                             initial={{ opacity: 0, y: 10 }}
                                             animate={{ opacity: 1, y: 0 }}
                                             exit={{ opacity: 0, y: -10 }}
-                                            className="space-y-6"
+                                            className="space-y-3"
                                         >
                                             <div>
-                                                <h3 className="text-3xl font-black text-slate-800 tracking-tighter italic uppercase mb-2">Step 04: Details.</h3>
+                                                <h3 className="text-xl text-slate-800 mb-1">Step 04: Details</h3>
                                                 {/* Show selected department & doctor info inline */}
-                                                <div className="flex items-center gap-3 mt-3 p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
+                                                <div className="flex items-center gap-3 mt-2 p-3 bg-emerald-50 rounded-xl border border-emerald-100">
                                                     <div className="w-10 h-10 rounded-xl overflow-hidden bg-emerald-200 flex-shrink-0 flex items-center justify-center text-lg">
                                                         {doctor ? <img src={getDoctorImg(doctor)} alt={doctor.name} className="w-full h-full object-cover" /> : '🏥'}
                                                     </div>
@@ -631,24 +670,24 @@ const BookingPage = () => {
                                                         </p>
                                                     </div>
                                                 </div>
-                                                <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-2"><span className="text-red-400">*</span> Required fields</p>
+                                                <p className="text-slate-400 text-xs mt-1"><span className="text-red-400">*</span> Required fields</p>
                                             </div>
                                             <div className="space-y-1">
-                                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Patient Name <span className="text-red-400">*</span></label>
-                                                <input required type="text" placeholder="Full Name" className="w-full h-14 bg-slate-50 rounded-2xl px-6 font-bold border-2 border-transparent focus:border-primary outline-none transition-all" value={patientName} onChange={e => setPatientName(e.target.value)} />
+                                                <label className="text-[10px] text-slate-400 ml-1">Patient Name <span className="text-red-400">*</span></label>
+                                                <input required type="text" placeholder="Full Name" className="w-full h-10 bg-slate-50 rounded-xl px-4 text-sm border border-transparent focus:border-primary outline-none transition-all" value={patientName} onChange={e => setPatientName(e.target.value)} />
                                             </div>
                                             <div className="space-y-1">
-                                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Mobile Number <span className="text-red-400">*</span></label>
-                                                <input required type="tel" placeholder="+91 XXXXX XXXXX" className="w-full h-14 bg-slate-50 rounded-2xl px-6 font-bold border-2 border-transparent focus:border-primary outline-none transition-all" value={mobileNumber} onChange={e => setMobileNumber(e.target.value)} />
+                                                <label className="text-[10px] text-slate-400 ml-1">Mobile Number <span className="text-red-400">*</span></label>
+                                                <input required type="tel" placeholder="+91 XXXXX XXXXX" className="w-full h-10 bg-slate-50 rounded-xl px-4 text-sm border border-transparent focus:border-primary outline-none transition-all" value={mobileNumber} onChange={e => setMobileNumber(e.target.value)} />
                                             </div>
                                             <div className="grid grid-cols-2 gap-4">
                                                 <div className="space-y-1">
-                                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Age <span className="text-red-400">*</span></label>
-                                                    <input required type="number" placeholder="Years" className="w-full h-14 bg-slate-50 rounded-2xl px-6 font-bold border-2 border-transparent focus:border-primary outline-none transition-all" value={age} onChange={e => setAge(e.target.value)} />
+                                                    <label className="text-[10px] text-slate-400 ml-1">Age <span className="text-red-400">*</span></label>
+                                                    <input required type="number" placeholder="Years" className="w-full h-10 bg-slate-50 rounded-xl px-4 text-sm border border-transparent focus:border-primary outline-none transition-all" value={age} onChange={e => setAge(e.target.value)} />
                                                 </div>
                                                 <div className="space-y-1">
-                                                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Gender <span className="text-red-400">*</span></label>
-                                                    <select required className="w-full h-14 bg-slate-50 rounded-2xl px-6 font-bold border-2 border-transparent focus:border-primary outline-none transition-all" value={gender} onChange={e => setGender(e.target.value)}>
+                                                    <label className="text-[10px] text-slate-400 ml-1">Gender <span className="text-red-400">*</span></label>
+                                                    <select required className="w-full h-10 bg-slate-50 rounded-xl px-4 text-sm border border-transparent focus:border-primary outline-none transition-all" value={gender} onChange={e => setGender(e.target.value)}>
                                                         <option value="">Select Gender</option>
                                                         <option value="Male">Male</option>
                                                         <option value="Female">Female</option>
@@ -657,16 +696,16 @@ const BookingPage = () => {
                                                 </div>
                                             </div>
                                             <div className="space-y-1">
-                                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Permanent Address</label>
-                                                <input type="text" placeholder="Full Address" className="w-full h-14 bg-slate-50 rounded-2xl px-6 font-bold border-2 border-transparent focus:border-primary outline-none transition-all" value={address} onChange={e => setAddress(e.target.value)} />
+                                                <label className="text-[10px] text-slate-400 ml-1">Permanent Address</label>
+                                                <input type="text" placeholder="Full Address" className="w-full h-10 bg-slate-50 rounded-xl px-4 text-sm border border-transparent focus:border-primary outline-none transition-all" value={address} onChange={e => setAddress(e.target.value)} />
                                             </div>
                                             <div className="space-y-1">
-                                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-2">Describe Your Problem</label>
-                                                <textarea rows={3} placeholder="Tell us about your symptoms or medical concern..." className="w-full bg-slate-50 rounded-2xl p-6 font-bold" value={problem} onChange={e => setProblem(e.target.value)} />
+                                                <label className="text-[10px] text-slate-400 ml-1">Describe Your Problem</label>
+                                                <textarea rows={2} placeholder="Tell us about your symptoms or medical concern..." className="w-full bg-slate-50 rounded-xl p-4 text-sm border border-transparent focus:border-primary outline-none" value={problem} onChange={e => setProblem(e.target.value)} />
                                             </div>
-                                            <div className="flex gap-4 pt-4">
-                                                <button onClick={() => setStep(3)} className="h-16 px-8 border-2 border-slate-100 rounded-2xl font-black uppercase text-xs tracking-widest italic text-slate-400 hover:border-slate-200 transition-all">Back</button>
-                                                <button onClick={() => setStep(5)} className="flex-1 h-16 bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-widest italic flex items-center justify-center gap-4 hover:bg-emerald-700 shadow-xl shadow-emerald-600/20 transition-all">
+                                            <div className="flex gap-3 pt-2">
+                                                <button onClick={() => setStep(3)} className="h-12 px-6 border border-slate-100 rounded-xl text-xs text-slate-400 hover:border-slate-200 transition-all">Back</button>
+                                                <button onClick={() => setStep(5)} className="flex-1 h-12 bg-emerald-500 text-white rounded-xl flex items-center justify-center gap-3 hover:bg-emerald-600 shadow-md transition-all text-sm">
                                                     Next: Payment <FiArrowRight />
                                                 </button>
                                             </div>
@@ -680,52 +719,89 @@ const BookingPage = () => {
                                             initial={{ opacity: 0, y: 10 }}
                                             animate={{ opacity: 1, y: 0 }}
                                             exit={{ opacity: 0, y: -10 }}
-                                            className="space-y-8"
+                                            className="space-y-4"
                                         >
                                             <div>
-                                                <h3 className="text-3xl font-black text-slate-800 tracking-tighter italic uppercase mb-2">Step 05: Payment.</h3>
-                                                <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Select your preferred payment method</p>
+                                                <h3 className="text-xl text-slate-800 mb-1">Step 05: Payment</h3>
+                                                <p className="text-slate-400 text-xs">Select your preferred payment method</p>
                                             </div>
 
-                                            <div className="bg-slate-50 rounded-[2.5rem] p-8 border border-slate-100">
-                                                <div className="flex justify-between items-center mb-6">
-                                                    <span className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Consultation Fee</span>
-                                                    <span className="text-slate-800 font-black text-xl italic">₹{doctor?.feesPerConsultation || 0}</span>
+                                            <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                                                <div className="flex justify-between items-center mb-3">
+                                                    <span className="text-slate-400 text-xs">Consultation Fee</span>
+                                                    <span className="text-slate-800 text-sm">₹{doctor?.feesPerConsultation || 0}</span>
                                                 </div>
-                                                <div className="space-y-4 mb-6">
+                                                <div className="space-y-2 mb-3">
                                                     {selectedServices.map((s, idx) => (
                                                         <div key={idx} className="flex justify-between items-center">
-                                                            <span className="text-slate-500 font-medium text-sm">{s.name}</span>
-                                                            <span className="text-slate-800 font-bold text-sm">₹{s.price}</span>
+                                                            <span className="text-slate-600 text-sm">{s.name}</span>
+                                                            <span className="text-slate-800 text-sm">₹{s.price}</span>
                                                         </div>
                                                     ))}
                                                 </div>
-                                                <div className="h-px bg-slate-200 mb-6"></div>
+                                                <div className="h-px bg-slate-200/80 mb-3"></div>
                                                 <div className="flex justify-between items-center">
-                                                    <span className="text-slate-800 font-black uppercase tracking-widest text-xs">Total Amount</span>
-                                                    <span className="text-primary font-black text-3xl italic">₹{calculateTotal()}</span>
+                                                    <span className="text-slate-800 text-xs">Total Amount</span>
+                                                    <span className="text-emerald-600 text-xl">₹{calculateTotal()}</span>
                                                 </div>
                                             </div>
 
-                                            <div className="grid grid-cols-1 gap-4">
-                                                <div className="p-6 bg-white border-2 border-primary rounded-2xl flex items-center justify-between group cursor-pointer hover:bg-emerald-50 transition-all">
-                                                    <div className="flex items-center gap-4">
-                                                        <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary text-2xl">
+                                            <div className="grid grid-cols-2 gap-3">
+                                                {/* Option 1: Pay by Cash */}
+                                                <div
+                                                    onClick={() => setPaymentMethod('cash')}
+                                                    className={`p-4 rounded-xl border transition-all cursor-pointer ${
+                                                        paymentMethod === 'cash'
+                                                            ? 'border-emerald-500 bg-emerald-50/80 shadow-sm'
+                                                            : 'border-slate-100 bg-white hover:border-emerald-200'
+                                                    }`}
+                                                >
+                                                    <div className="flex items-center justify-between mb-3">
+                                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg ${
+                                                            paymentMethod === 'cash' ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-500'
+                                                        }`}>
+                                                            💵
+                                                        </div>
+                                                        <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                                                            paymentMethod === 'cash' ? 'border-emerald-500 bg-emerald-500' : 'border-slate-300'
+                                                        }`}>
+                                                            {paymentMethod === 'cash' && <span className="w-2 h-2 rounded-full bg-white" />}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-slate-900 text-sm">Pay at Clinic (Cash)</p>
+                                                    <p className="text-[10px] text-slate-400 mt-0.5">Pay during your appointment</p>
+                                                </div>
+
+                                                {/* Option 2: Online / Stripe */}
+                                                <div
+                                                    onClick={() => setPaymentMethod('stripe')}
+                                                    className={`p-4 rounded-xl border transition-all cursor-pointer ${
+                                                        paymentMethod === 'stripe'
+                                                            ? 'border-emerald-500 bg-emerald-50/80 shadow-sm'
+                                                            : 'border-slate-100 bg-white hover:border-emerald-200'
+                                                    }`}
+                                                >
+                                                    <div className="flex items-center justify-between mb-3">
+                                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg ${
+                                                            paymentMethod === 'stripe' ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-500'
+                                                        }`}>
                                                             <FiCreditCard />
                                                         </div>
-                                                        <div>
-                                                            <p className="font-black text-slate-800 uppercase tracking-tight italic">Dummy Payment System</p>
-                                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Simulated Secure Checkout</p>
-                                                        </div>
+                                                        <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                                                            paymentMethod === 'stripe' ? 'border-emerald-500 bg-emerald-500' : 'border-slate-300'
+                                                        }`}>
+                                                            {paymentMethod === 'stripe' && <span className="w-2 h-2 rounded-full bg-white" />}
+                                                        </span>
                                                     </div>
-                                                    <div className="w-6 h-6 rounded-full border-4 border-primary bg-primary shadow-lg shadow-primary/20"></div>
+                                                    <p className="text-slate-900 text-sm">Online (Stripe / Card)</p>
+                                                    <p className="text-[10px] text-slate-400 mt-0.5">Instant digital payment</p>
                                                 </div>
                                             </div>
 
-                                            <div className="flex gap-4 pt-4">
-                                                <button onClick={() => setStep(4)} className="h-16 px-8 border-2 border-slate-100 rounded-2xl font-black uppercase text-xs tracking-widest italic text-slate-400 hover:border-slate-200 transition-all">Back</button>
-                                                <button onClick={handleBooking} className="flex-1 h-16 bg-primary text-white rounded-2xl font-black uppercase tracking-widest italic flex items-center justify-center gap-4 hover:bg-emerald-600 shadow-xl shadow-primary/20 transition-all">
-                                                    Pay & Confirm Booking <FiCheckCircle />
+                                            <div className="flex gap-3 pt-2">
+                                                <button onClick={() => setStep(4)} className="h-12 px-6 border border-slate-100 rounded-xl text-xs text-slate-400 hover:border-slate-200 transition-all">Back</button>
+                                                <button onClick={handleBooking} className="flex-1 h-12 bg-emerald-500 text-white rounded-xl flex items-center justify-center gap-3 hover:bg-emerald-600 shadow-md transition-all text-sm">
+                                                    {paymentMethod === 'cash' ? 'Confirm Booking' : 'Pay Online & Confirm'} <FiCheckCircle />
                                                 </button>
                                             </div>
                                         </motion.div>
@@ -742,21 +818,45 @@ const BookingPage = () => {
                                             <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center text-4xl mb-6 shadow-xl shadow-green-100 animate-bounce">
                                                 <FiCheckCircle />
                                             </div>
-                                            <h3 className="text-4xl font-black text-slate-800 tracking-tighter italic uppercase mb-2 leading-none">Booking Confirmed!</h3>
-                                            <div className="bg-slate-900 rounded-3xl p-8 w-full my-8 relative overflow-hidden">
+                                            <h3 className="text-4xl font-black text-slate-800 tracking-tighter italic uppercase mb-2 leading-none">
+                                                Booking Confirmed!
+                                            </h3>
+                                            <p className="text-slate-500 font-bold text-xs uppercase tracking-widest mb-2">
+                                                {paymentMethod === 'cash' 
+                                                    ? '💵 Payment Method: Pay at Clinic Counter (Pending Cash)' 
+                                                    : '💳 Payment Method: Online Card (Verified)'}
+                                            </p>
+                                            {paymentMethod === 'cash' && (
+                                                <div className="bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl px-4 py-2 text-xs font-bold mb-4 max-w-md">
+                                                    Notice: Please pay ₹{bookedAppointment?.totalAmount || activeDoctor?.feesPerConsultation || 500} at the clinic reception upon arrival. Your official tax receipt will be downloadable once payment is confirmed by staff.
+                                                </div>
+                                            )}
+                                            <div className="bg-slate-900 rounded-3xl p-8 w-full my-4 relative overflow-hidden">
                                                 <div className="absolute top-0 right-0 w-24 h-24 bg-primary/20 rounded-full blur-3xl"></div>
                                                 <p className="text-white/40 font-black uppercase tracking-[0.3em] text-[8px] mb-2">Unique verification Code</p>
                                                 <h4 className="text-white text-5xl font-black italic tracking-tighter uppercase mb-4">{appointmentCode}</h4>
                                                 
-                                                <div className="mt-6 pt-6 border-t border-slate-800 text-left">
-                                                    <p className="text-white/40 font-black uppercase tracking-[0.3em] text-[8px] mb-1">Transaction ID</p>
-                                                    <p className="text-emerald-400 font-bold font-mono tracking-widest text-sm">{bookedAppointment?.transactionId}</p>
+                                                <div className="mt-6 pt-6 border-t border-slate-800 text-left flex justify-between items-center">
+                                                    <div>
+                                                        <p className="text-white/40 font-black uppercase tracking-[0.3em] text-[8px] mb-1">Payment Status</p>
+                                                        <p className={`font-bold font-mono tracking-widest text-sm ${bookedAppointment?.paymentStatus === 'paid' ? 'text-emerald-400' : 'text-amber-400'}`}>
+                                                            {bookedAppointment?.paymentStatus === 'paid' ? 'PAID ✓' : 'PENDING CASH AT COUNTER'}
+                                                        </p>
+                                                    </div>
+                                                    {bookedAppointment?.transactionId && (
+                                                        <div className="text-right">
+                                                            <p className="text-white/40 font-black uppercase tracking-[0.3em] text-[8px] mb-1">Reference ID</p>
+                                                            <p className="text-slate-300 font-mono text-xs">{bookedAppointment.transactionId}</p>
+                                                        </div>
+                                                    )}
                                                 </div>
                                                 
                                                 <p className="text-white/60 text-[10px] font-bold uppercase tracking-widest leading-relaxed mt-6">Please present this code to the specialist for verification.</p>
                                             </div>
                                             <div className="flex flex-col w-full gap-4">
-                                                <button onClick={() => setShowReceipt(true)} className="w-full h-16 bg-primary/10 text-primary rounded-2xl font-black uppercase tracking-widest italic">View Details</button>
+                                                <button onClick={() => setShowReceipt(true)} className="w-full h-16 bg-primary/10 text-primary rounded-2xl font-black uppercase tracking-widest italic">
+                                                    {bookedAppointment?.paymentStatus === 'paid' ? 'View & Download Receipt' : 'View Appointment Details'}
+                                                </button>
                                                 <button onClick={() => navigate('/appointments')} className="w-full h-16 bg-emerald-600/10 text-emerald-600 rounded-2xl font-black uppercase tracking-widest italic">My Appointments</button>
                                                 <button onClick={() => navigate('/dashboard')} className="text-slate-400 font-bold text-xs uppercase tracking-[0.2em] hover:text-slate-800 transition-colors py-2">Back to Dashboard</button>
                                             </div>

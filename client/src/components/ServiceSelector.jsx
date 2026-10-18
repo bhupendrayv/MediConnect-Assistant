@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useSelector } from 'react-redux';
 import { FiVideo, FiUser, FiActivity, FiRefreshCw, FiDroplet, FiCheckCircle, FiEdit2, FiX, FiCheck } from 'react-icons/fi';
 
 const icons = {
@@ -10,10 +11,14 @@ const icons = {
 };
 
 const ServiceSelector = ({ services, selectedServices, onToggleService, onUpdateService }) => {
+    const { user } = useSelector(state => state.user || {});
+    const isAdmin = Boolean(user?.role === 'admin' || user?.isAdmin);
+
     const [editingId, setEditingId] = useState(null);
     const [editPrice, setEditPrice] = useState('');
 
     const startEdit = (e, service) => {
+        if (!isAdmin) return; // Strict admin only
         e.stopPropagation(); // Prevent card selection
         setEditingId(service.id);
         setEditPrice(service.price);
@@ -21,7 +26,7 @@ const ServiceSelector = ({ services, selectedServices, onToggleService, onUpdate
 
     const saveEdit = (e, service) => {
         e.stopPropagation();
-        if (onUpdateService && !isNaN(editPrice)) {
+        if (isAdmin && onUpdateService && !isNaN(editPrice)) {
             onUpdateService(service.id, editPrice);
         }
         setEditingId(null);
@@ -33,59 +38,80 @@ const ServiceSelector = ({ services, selectedServices, onToggleService, onUpdate
     };
 
     return (
-        <div className="grid md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
             {services.map(service => {
                 const isSelected = selectedServices.some(s => s.id === service.id);
-                const isEditing = editingId === service.id;
+                const isEditing = isAdmin && editingId === service.id;
 
                 return (
                     <div
                         key={service.id}
                         onClick={() => !isEditing && onToggleService(service)}
-                        className={`p-6 rounded-2xl border-2 transition-all cursor-pointer relative overflow-hidden group ${isSelected ? 'border-primary bg-emerald-50' : 'border-slate-100 bg-white hover:border-emerald-200'}`}
+                        className={`p-3 rounded-xl border cursor-pointer relative transition-all ${
+                            isSelected
+                                ? 'border-emerald-500 bg-emerald-50/80'
+                                : 'border-slate-100 bg-white hover:border-emerald-300'
+                        }`}
                     >
                         {isSelected && !isEditing && (
-                            <div className="absolute top-4 right-4 text-emerald-600">
-                                <FiCheckCircle className="text-xl" />
+                            <div className="absolute top-2 right-2 text-emerald-600">
+                                <FiCheckCircle className="text-sm" />
                             </div>
                         )}
-                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl mb-4 ${isSelected ? 'bg-primary text-white' : 'bg-slate-50 text-slate-400 group-hover:bg-emerald-100 group-hover:text-emerald-600'}`}>
-                            {icons[service.icon]}
-                        </div>
-                        <h4 className={`text-lg font-black italic uppercase mb-2 ${isSelected ? 'text-slate-800' : 'text-slate-600'}`}>{service.name}</h4>
-                        <p className="text-xs text-slate-400 font-medium leading-relaxed mb-4">{service.description}</p>
 
-                        <div className="flex items-center justify-between mt-auto">
+                        <div className="flex items-center gap-2 mb-1.5">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm flex-shrink-0 ${
+                                isSelected
+                                    ? 'bg-emerald-500 text-white'
+                                    : 'bg-slate-50 text-slate-400'
+                            }`}>
+                                {icons[service.icon]}
+                            </div>
+                            <h4 className={`text-sm leading-tight ${
+                                isSelected ? 'text-slate-900' : 'text-slate-700'
+                            }`}>
+                                {service.name}
+                            </h4>
+                        </div>
+
+                        <p className="text-[10px] text-slate-400 leading-snug mb-2 line-clamp-2">
+                            {service.description}
+                        </p>
+
+                        <div className="flex items-center justify-between">
                             {isEditing ? (
-                                <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
-                                    <span className="font-bold text-slate-700">₹</span>
+                                <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                                    <span className="text-slate-700 text-xs">₹</span>
                                     <input
                                         type="number"
                                         autoFocus
                                         value={editPrice}
                                         onChange={(e) => setEditPrice(e.target.value)}
-                                        className="w-20 bg-slate-100 rounded-lg px-2 py-1 font-bold text-slate-800 outline-none focus:ring-2 focus:ring-primary/20"
+                                        className="w-14 bg-slate-100 rounded px-1 py-0.5 text-xs text-slate-800 outline-none"
                                     />
-                                    <div className="flex gap-1">
-                                        <button onClick={(e) => saveEdit(e, service)} className="p-1.5 bg-green-100 text-green-600 rounded-lg hover:bg-green-200"><FiCheck size={14} /></button>
-                                        <button onClick={cancelEdit} className="p-1.5 bg-red-100 text-red-600 rounded-lg hover:bg-red-200"><FiX size={14} /></button>
-                                    </div>
+                                    <button onClick={(e) => saveEdit(e, service)} className="p-1 bg-emerald-100 text-emerald-700 rounded"><FiCheck size={10} /></button>
+                                    <button onClick={cancelEdit} className="p-1 bg-red-100 text-red-600 rounded"><FiX size={10} /></button>
                                 </div>
                             ) : (
-                                <div className="flex items-center gap-3">
-                                    <span className="font-bold text-slate-700 text-lg">₹{service.price}</span>
-                                    {onUpdateService && (
+                                <div className="flex items-center gap-1">
+                                    <span className="text-slate-900 text-sm">
+                                        ₹{service.price}
+                                    </span>
+                                    {isAdmin && onUpdateService && (
                                         <button
                                             onClick={(e) => startEdit(e, service)}
-                                            className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 hover:bg-primary hover:text-white transition-all opacity-0 group-hover:opacity-100"
-                                            title="Edit Fee"
+                                            className="w-5 h-5 rounded bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-emerald-600 hover:text-white transition-all"
+                                            title="Admin: Edit Fee"
                                         >
-                                            <FiEdit2 size={12} />
+                                            <FiEdit2 size={9} />
                                         </button>
                                     )}
                                 </div>
                             )}
-                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{service.duration}</span>
+
+                            <span className="text-[9px] text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded-full border border-slate-100">
+                                {service.duration}
+                            </span>
                         </div>
                     </div>
                 );
