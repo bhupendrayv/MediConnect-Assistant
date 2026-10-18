@@ -6,7 +6,8 @@ const {
     doctorAppointmentsController,
     updateStatusController,
     transferAppointmentController,
-    toggleAvailabilityController
+    toggleAvailabilityController,
+    confirmCashPaymentController
 } = require('../controllers/doctorController');
 const authMiddleware = require('../middlewares/authMiddleware');
 
@@ -33,5 +34,8 @@ router.post('/transfer-appointment', authMiddleware, transferAppointmentControll
 
 // POST TOGGLE AVAILABILITY
 router.post('/toggle-availability', authMiddleware, toggleAvailabilityController);
+
+// POST CONFIRM CASH PAYMENT
+router.post('/confirm-cash-payment', authMiddleware, confirmCashPaymentController);
 
 module.exports = router;

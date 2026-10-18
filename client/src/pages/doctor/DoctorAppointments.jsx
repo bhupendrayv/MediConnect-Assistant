@@ -27,9 +27,35 @@ const DoctorAppointments = () => {
     const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false);
     const [completeAppointment, setCompleteAppointment] = useState(null);
     const [doctorNotes, setDoctorNotes] = useState('');
-    const [prescription, setPrescription] = useState('');
-    const [recommendations, setRecommendations] = useState('');
     const [completeLoading, setCompleteLoading] = useState(false);
+
+    // Cash Payment Confirmation State
+    const [isCashModalOpen, setIsCashModalOpen] = useState(false);
+    const [cashAppointment, setCashAppointment] = useState(null);
+    const [cashLoading, setCashLoading] = useState(false);
+
+    const handleConfirmCash = async () => {
+        if (!cashAppointment) return;
+        try {
+            setCashLoading(true);
+            const res = await api.post('/doctor/confirm-cash-payment', {
+                appointmentId: cashAppointment._id
+            });
+            setCashLoading(false);
+            if (res.data.success) {
+                message.success(res.data.message || 'Cash payment confirmed! Receipt unlocked.');
+                setIsCashModalOpen(false);
+                setCashAppointment(null);
+                getAppointments();
+            } else {
+                message.error(res.data.message || 'Failed to confirm cash payment');
+            }
+        } catch (error) {
+            setCashLoading(false);
+            console.error('Error confirming cash payment:', error);
+            message.error(error.response?.data?.message || 'Error confirming cash payment');
+        }
+    };
 
     useEffect(() => {
         if (user && !user.isDoctor) {
@@ -212,27 +238,59 @@ const DoctorAppointments = () => {
         {
             title: 'Payment Status',
             key: 'paymentStatus',
-            render: (_, record) => (
-                <div>
-                    {record.paymentStatus === 'paid' ? (
-                        <Tag color="green" className="font-black text-[10px] uppercase rounded-full px-3 py-0.5">
-                            PAID
-                        </Tag>
-                    ) : (
-                        <Tag color="orange" className="font-black text-[10px] uppercase rounded-full px-3 py-0.5">
-                            PENDING
-                        </Tag>
-                    )}
-                    {record.transactionId && (
-                        <div className="text-[9px] font-mono text-slate-400 font-bold mt-1">
-                            TXN: {record.transactionId}
+            render: (_, record) => {
+                const isPaid = record.paymentStatus === 'paid';
+                const isCash = record.paymentMethod === 'cash' || record.paymentStatus === 'pending_cash';
+                const totalFee = record.totalAmount || record.doctorInfo?.feesPerConsultation || 500;
+
+                return (
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-1.5">
+                            {isPaid ? (
+                                <Tag color="green" className="m-0 font-black text-[10px] uppercase rounded-full px-2.5 py-0.5">
+                                    PAID
+                                </Tag>
+                            ) : (
+                                <Tag color={isCash ? 'orange' : 'orange'} className={`m-0 font-black text-[10px] uppercase rounded-full px-2.5 py-0.5 ${isCash ? 'animate-pulse' : ''}`}>
+                                    {isCash ? 'CASH PENDING' : 'PENDING'}
+                                </Tag>
+                            )}
+                            <Tag color="default" className="m-0 font-bold text-[9px] border-slate-200 text-slate-500 rounded-full">
+                                {isCash ? '💵 Cash' : '💳 Online'}
+                            </Tag>
                         </div>
-                    )}
-                    <div className="text-[10px] font-black text-emerald-700 mt-0.5">
-                        Fee: ₹{record.totalAmount || record.doctorInfo?.feesPerConsultation || 500}
+
+                        <div className="text-[11px] font-black text-emerald-700">
+                            Fee: ₹{totalFee}
+                        </div>
+
+                        {record.transactionId && (
+                            <div className="text-[9px] font-mono text-slate-400 font-bold">
+                                TXN: {record.transactionId}
+                            </div>
+                        )}
+
+                        {isPaid && record.approvedBy && (
+                            <div className="text-[9px] font-bold text-teal-600">
+                                Verified: {record.approvedBy}
+                            </div>
+                        )}
+
+                        {/* Action button to confirm cash if pending */}
+                        {!isPaid && isCash && (
+                            <button
+                                onClick={() => {
+                                    setCashAppointment(record);
+                                    setIsCashModalOpen(true);
+                                }}
+                                className="mt-1 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[9px] uppercase tracking-wider rounded-lg shadow-sm transition-all flex items-center gap-1 cursor-pointer"
+                            >
+                                💵 Confirm Cash Received
+                            </button>
+                        )}
                     </div>
-                </div>
-            )
+                );
+            }
         },
         {
             title: 'Status & Transfer',
@@ -344,6 +402,60 @@ const DoctorAppointments = () => {
                             <Select className="w-full h-12 rounded-xl" placeholder="Select Doctor..." value={targetDoctorId || undefined} onChange={val => setTargetDoctorId(val)} options={allDoctors.map(doc => ({ value: doc._id, label: `${doc.name?.toLowerCase().startsWith('dr') ? doc.name : `Dr. ${doc.name}`} (${doc.specialization || 'Specialist'})` }))} />
                         </div>
                         <div><label className="block text-xs font-black uppercase text-slate-500 mb-1">Reason for Transfer</label><Input.TextArea rows={3} placeholder="Reason..." value={transferReason} onChange={e => setTransferReason(e.target.value)} className="rounded-xl font-medium" /></div>
+                    </div>
+                )}
+            </Modal>
+
+            {/* Confirm Cash Received Modal */}
+            <Modal
+                title={
+                    <div className="flex items-center gap-2 text-emerald-700 font-black uppercase text-sm">
+                        <span>💵</span> Confirm Cash Payment Received
+                    </div>
+                }
+                open={isCashModalOpen}
+                onCancel={() => {
+                    if (!cashLoading) {
+                        setIsCashModalOpen(false);
+                        setCashAppointment(null);
+                    }
+                }}
+                footer={[
+                    <button
+                        key="cancel"
+                        onClick={() => {
+                            setIsCashModalOpen(false);
+                            setCashAppointment(null);
+                        }}
+                        disabled={cashLoading}
+                        className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all mr-2 cursor-pointer"
+                    >
+                        Cancel
+                    </button>,
+                    <button
+                        key="confirm"
+                        onClick={handleConfirmCash}
+                        disabled={cashLoading}
+                        className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
+                    >
+                        {cashLoading ? 'Verifying...' : 'Confirm Cash Received'}
+                    </button>
+                ]}
+            >
+                {cashAppointment && (
+                    <div className="py-4 space-y-3 text-slate-700">
+                        <p className="text-sm">
+                            Confirm you have received <strong>₹{cashAppointment.totalAmount || cashAppointment.doctorInfo?.feesPerConsultation || 500}</strong> in cash from <strong>{cashAppointment.userInfo?.name || 'the patient'}</strong>?
+                        </p>
+                        <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs space-y-1">
+                            <div><strong>Appointment Code:</strong> <span className="font-mono text-emerald-600 font-bold">{cashAppointment.appointmentCode}</span></div>
+                            <div><strong>Patient Contact:</strong> {cashAppointment.userInfo?.mobileNumber || 'N/A'}</div>
+                            <div><strong>Scheduled Slot:</strong> {cashAppointment.date} at {cashAppointment.time}</div>
+                            <div><strong>Amount:</strong> ₹{cashAppointment.totalAmount || cashAppointment.doctorInfo?.feesPerConsultation || 500}</div>
+                        </div>
+                        <p className="text-[11px] text-slate-400 italic">
+                            Upon confirmation, this appointment will be marked as <strong>PAID</strong>, a cash reference ID will be generated, and the patient will be able to download their official tax receipt.
+                        </p>
                     </div>
                 )}
             </Modal>

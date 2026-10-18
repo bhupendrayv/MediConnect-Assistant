@@ -1,6 +1,7 @@
 const Appointment = require('../models/Appointment');
 const User = require('../models/User');
 const mongoose = require('mongoose');
+const { completePayment } = require('../utils/paymentUtils');
 
 // Get profile info of current logged-in doctor
 const getDoctorInfoController = async (req, res) => {
@@ -326,6 +327,48 @@ const toggleAvailabilityController = async (req, res) => {
     }
 };
 
+// Confirm Cash Payment Received by Staff / Doctor
+const confirmCashPaymentController = async (req, res) => {
+    try {
+        const staffUserId = req.user?.id || req.body.userId;
+        const staffUser = await User.findById(staffUserId);
+
+        if (!staffUser || (!staffUser.isDoctor && !staffUser.isAdmin)) {
+            return res.status(403).send({
+                success: false,
+                message: 'Unauthorized: Only doctors or staff/admin can confirm cash payments',
+            });
+        }
+
+        const { appointmentId } = req.body;
+        if (!appointmentId) {
+            return res.status(400).send({
+                success: false,
+                message: 'appointmentId is required',
+            });
+        }
+
+        const staffName = staffUser.name?.toLowerCase().startsWith('dr') 
+            ? staffUser.name 
+            : (staffUser.isDoctor ? `Dr. ${staffUser.name}` : `${staffUser.name} (Clinic Staff)`);
+
+        const appointment = await completePayment(appointmentId, 'cash', { approvedBy: staffName });
+
+        res.status(200).send({
+            success: true,
+            message: `Cash received & confirmed! Receipt unlocked with reference: ${appointment.transactionId}`,
+            data: appointment,
+        });
+    } catch (error) {
+        console.error('Error in confirmCashPaymentController:', error);
+        res.status(500).send({
+            success: false,
+            message: 'Failed to confirm cash payment',
+            error: error.message,
+        });
+    }
+};
+
 module.exports = {
     getDoctorInfoController,
     updateProfileController,
@@ -334,4 +377,5 @@ module.exports = {
     updateStatusController,
     transferAppointmentController,
     toggleAvailabilityController,
+    confirmCashPaymentController,
 };

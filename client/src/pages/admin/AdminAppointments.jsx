@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Layout from '../../components/layout/Layout';
 import api from '../../services/api';
-import { Table, message, Tag, Input, Select, Tabs } from 'antd';
+import { Table, message, Tag, Input, Select, Tabs, Modal } from 'antd';
 import { FiSearch, FiCalendar, FiClock, FiDollarSign, FiUser, FiCheckCircle, FiXCircle } from 'react-icons/fi';
 import dayjs from 'dayjs';
 
@@ -12,6 +12,34 @@ const AdminAppointments = () => {
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
+
+    // Cash Confirmation State
+    const [isCashModalOpen, setIsCashModalOpen] = useState(false);
+    const [cashAppointment, setCashAppointment] = useState(null);
+    const [cashLoading, setCashLoading] = useState(false);
+
+    const handleConfirmCash = async () => {
+        if (!cashAppointment) return;
+        try {
+            setCashLoading(true);
+            const res = await api.post('/admin/confirm-cash-payment', {
+                appointmentId: cashAppointment._id
+            });
+            setCashLoading(false);
+            if (res.data.success) {
+                message.success(res.data.message || 'Cash payment confirmed! Verified receipt generated.');
+                setIsCashModalOpen(false);
+                setCashAppointment(null);
+                getAppointments();
+            } else {
+                message.error(res.data.message || 'Failed to confirm cash payment');
+            }
+        } catch (error) {
+            setCashLoading(false);
+            console.error('Error confirming cash payment:', error);
+            message.error(error.response?.data?.message || 'Error confirming cash payment');
+        }
+    };
 
     const getAppointments = async () => {
         try {
@@ -120,9 +148,41 @@ const AdminAppointments = () => {
             render: (amount, record) => (
                 <div>
                     <div className="font-black text-slate-800 text-xs">₹{amount || record.doctorInfo?.feesPerConsultation || 0}</div>
-                    <Tag color={record.paymentStatus === 'paid' ? 'green' : 'orange'} className="text-[9px] uppercase font-bold px-2 py-0 rounded-full mt-0.5">
-                        {record.paymentStatus || 'Pending'}
-                    </Tag>
+                    <div className="flex flex-col gap-1 items-start mt-0.5">
+                        <div className="flex items-center gap-1.5">
+                            {record.paymentStatus === 'paid' ? (
+                                <Tag color="green" className="m-0 text-[9px] uppercase font-bold px-2 py-0 rounded-full">
+                                    PAID
+                                </Tag>
+                            ) : (
+                                <Tag color={record.paymentMethod === 'cash' ? 'volcano' : 'orange'} className={`m-0 text-[9px] uppercase font-bold px-2 py-0 rounded-full ${record.paymentMethod === 'cash' ? 'animate-pulse' : ''}`}>
+                                    {record.paymentMethod === 'cash' ? 'CASH PENDING' : 'PENDING'}
+                                </Tag>
+                            )}
+                            <Tag color="default" className="m-0 font-bold text-[9px] border-slate-200 text-slate-500 rounded-full">
+                                {record.paymentMethod === 'cash' ? '💵 Cash' : '💳 Online'}
+                            </Tag>
+                        </div>
+                        {record.transactionId && (
+                            <span className="text-[10px] text-slate-400 font-mono font-bold mt-0.5">{record.transactionId}</span>
+                        )}
+                        {record.paymentMethod === 'cash' && record.paymentStatus !== 'paid' && (
+                            <button
+                                onClick={() => {
+                                    setCashAppointment(record);
+                                    setIsCashModalOpen(true);
+                                }}
+                                className="mt-1 flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] px-2.5 py-1 rounded-lg shadow-sm transition-all cursor-pointer"
+                            >
+                                💵 Confirm Cash Received
+                            </button>
+                        )}
+                        {record.approvedBy && (
+                            <span className="text-[9px] text-slate-400 font-semibold">
+                                Recv: {record.approvedBy}
+                            </span>
+                        )}
+                    </div>
                 </div>
             )
         },
@@ -218,6 +278,56 @@ const AdminAppointments = () => {
                         pagination={{ pageSize: 10 }}
                     />
                 </div>
+
+                {/* Cash Received Confirmation Modal */}
+                <Modal
+                    title={null}
+                    open={isCashModalOpen}
+                    onCancel={() => {
+                        if (!cashLoading) {
+                            setIsCashModalOpen(false);
+                            setCashAppointment(null);
+                        }
+                    }}
+                    footer={null}
+                    centered
+                    destroyOnClose
+                >
+                    <div className="p-4 text-center">
+                        <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-3xl mx-auto mb-4 font-black">
+                            ₹
+                        </div>
+                        <h3 className="text-xl font-black text-slate-800 mb-2">Confirm Cash Collection</h3>
+                        <p className="text-sm text-slate-600 mb-4">
+                            Confirm you have received <span className="font-black text-emerald-600">₹{cashAppointment?.totalAmount || cashAppointment?.doctorInfo?.feesPerConsultation || 0}</span> in cash from <span className="font-bold text-slate-800">{cashAppointment?.userInfo?.name || 'the patient'}</span>?
+                        </p>
+                        <div className="bg-slate-50 p-3.5 rounded-xl text-xs text-slate-600 mb-6 text-left border border-slate-200 space-y-1">
+                            <div><strong>Appointment:</strong> {cashAppointment?.appointmentCode}</div>
+                            <div><strong>Doctor:</strong> Dr. {cashAppointment?.doctorInfo?.name}</div>
+                            <div><strong>Date & Time:</strong> {cashAppointment?.date} ({cashAppointment?.time})</div>
+                            <div className="text-emerald-700 font-semibold pt-1">✓ Instantly marks payment as Paid and generates verified receipt.</div>
+                        </div>
+                        <div className="flex gap-3 justify-center">
+                            <button
+                                disabled={cashLoading}
+                                onClick={() => {
+                                    setIsCashModalOpen(false);
+                                    setCashAppointment(null);
+                                }}
+                                className="px-5 py-2.5 rounded-xl border border-slate-300 font-bold text-slate-600 hover:bg-slate-100 transition-all text-xs cursor-pointer"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                disabled={cashLoading}
+                                onClick={handleConfirmCash}
+                                className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition-all shadow-md text-xs flex items-center gap-2 cursor-pointer"
+                            >
+                                {cashLoading ? 'Confirming...' : 'Yes, Confirm Received'}
+                            </button>
+                        </div>
+                    </div>
+                </Modal>
             </div>
         </Layout>
     );

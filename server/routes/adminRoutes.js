@@ -15,6 +15,9 @@ const {
     getAllBloodRequestsController,
     updateBloodStatusController
 } = require('../controllers/bloodBankController');
+const {
+    confirmCashPaymentController
+} = require('../controllers/doctorController');
 
 const authMiddleware = require('../middlewares/authMiddleware');
 
@@ -34,6 +37,7 @@ router.post('/changeAccountStatus', authMiddleware, changeAccountStatusControlle
 // Appointments Global Ledger & Moderation
 router.get('/getAllAppointments', authMiddleware, getAllAppointmentsController);
 router.post('/updateAppointmentStatus', authMiddleware, updateAppointmentStatusByAdminController);
+router.post('/confirm-cash-payment', authMiddleware, confirmCashPaymentController);
 
 // Notification Broadcast Route
 router.post('/broadcast-notification', authMiddleware, broadcastNotificationController);
