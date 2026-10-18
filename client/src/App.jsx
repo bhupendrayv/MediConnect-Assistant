@@ -25,6 +25,7 @@ import AdminLogin from './pages/admin/AdminLogin';
 import DoctorLogin from './pages/doctor/DoctorLogin';
 import MobileLookup from './pages/MobileLookup';
 import CheckStatus from './pages/CheckStatus';
+import Payments from './pages/Payments';
 import { FiActivity } from 'react-icons/fi';
 
 function App() {
@@ -123,6 +124,11 @@ function App() {
                 <Route path="/appointments" element={
                     <ProtectedRoute>
                         <Appointments />
+                    </ProtectedRoute>
+                } />
+                <Route path="/payments" element={
+                    <ProtectedRoute>
+                        <Payments />
                     </ProtectedRoute>
                 } />
                 <Route path="/doctor-appointments" element={

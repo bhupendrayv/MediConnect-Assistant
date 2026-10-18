@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/layout/Layout';
 import { Form, Input, message } from 'antd';
 import { useSelector, useDispatch } from 'react-redux';
 import { showLoading, hideLoading } from '../redux/features/alertSlice';
-import axios from 'axios';
+import api from '../services/api';
 import { FiActivity, FiAlertCircle, FiCheckCircle, FiCpu, FiMessageSquare, FiClock } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import moment from 'moment';
@@ -14,35 +14,28 @@ const AIHelper = () => {
     const [diagnosis, setDiagnosis] = useState(null);
     const [history, setHistory] = useState([]);
 
-    const getHistory = async () => {
+    const getHistory = useCallback(async () => {
+        if (!user?._id) return;
         try {
-            const res = await axios.post('/user/get-diagnosis-history', { userId: user?._id }, {
-                headers: {
-                    Authorization: `Bearer ${localStorage.getItem('token')}`
-                }
-            });
+            const res = await api.post('/user/get-diagnosis-history', { userId: user._id });
             if (res.data.success) {
                 setHistory(res.data.data);
             }
         } catch (error) {
             console.log(error);
         }
-    };
+    }, [user?._id]);
 
     useEffect(() => {
-        if (user) {
+        if (user?._id) {
             getHistory();
         }
-    }, [user, getHistory]);
+    }, [user?._id, getHistory]);
 
     const onFinish = async (values) => {
         try {
             dispatch(showLoading());
-            const res = await axios.post('/user/predict-disease', { ...values, userId: user?._id }, {
-                headers: {
-                    Authorization: `Bearer ${localStorage.getItem('token')}`
-                }
-            });
+            const res = await api.post('/user/predict-disease', { ...values, userId: user?._id });
             dispatch(hideLoading());
             if (res.data.success) {
                 setDiagnosis(res.data.data);

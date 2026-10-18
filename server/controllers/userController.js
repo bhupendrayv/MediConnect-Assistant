@@ -190,7 +190,8 @@ const bookAppointmentController = async (req, res) => {
             selectedServices: selectedServices || [],
             symptoms: symptoms || '',
             status: 'pending',
-            paymentStatus: req.body.paymentStatus || 'pending',
+            paymentMethod: req.body.paymentMethod || 'cash',
+            paymentStatus: req.body.paymentStatus || (req.body.paymentMethod === 'cash' ? 'pending' : 'paid'),
             totalAmount
         });
 

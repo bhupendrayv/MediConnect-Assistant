@@ -1,14 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Layout from '../components/layout/Layout';
 import api from '../services/api';
 import dayjs from 'dayjs';
-import { Table, Tag, Modal, Input, message } from 'antd';
-import { FiSearch, FiPhone, FiCheckCircle, FiFileText, FiClock, FiShare2, FiActivity, FiUser, FiCreditCard } from 'react-icons/fi';
+import { Tag, message } from 'antd';
+import { FiSearch, FiPhone, FiFileText, FiShare2, FiHash } from 'react-icons/fi';
 import AppointmentReceipt from '../components/AppointmentReceipt';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const MobileLookup = () => {
+    const [searchMode, setSearchMode] = useState('mobile'); // 'mobile' or 'appointment'
     const [mobileNumber, setMobileNumber] = useState('');
+    const [appointmentId, setAppointmentId] = useState('');
     const [loading, setLoading] = useState(false);
     const [records, setRecords] = useState([]);
     const [hasSearched, setHasSearched] = useState(false);
@@ -17,9 +19,14 @@ const MobileLookup = () => {
 
     const handleSearch = async (e) => {
         if (e) e.preventDefault();
-        const searchInput = mobileNumber.trim();
+        const searchInput = searchMode === 'mobile' ? mobileNumber.trim() : appointmentId.trim();
+
         if (!searchInput) {
-            return message.error('Please enter a Mobile Number or Appointment Code');
+            return message.error(
+                searchMode === 'mobile'
+                    ? 'Please enter your registered mobile number'
+                    : 'Please enter your appointment ID'
+            );
         }
 
         try {
@@ -42,6 +49,14 @@ const MobileLookup = () => {
         }
     };
 
+    const handleTabSwitch = (mode) => {
+        setSearchMode(mode);
+        setMobileNumber('');
+        setAppointmentId('');
+        setRecords([]);
+        setHasSearched(false);
+    };
+
     return (
         <Layout>
             <div className="p-4 md:p-8 max-w-6xl mx-auto">
@@ -51,21 +66,82 @@ const MobileLookup = () => {
                         <FiSearch />
                     </div>
                     <h1 className="text-4xl font-black text-slate-800 tracking-tight italic uppercase mb-2">Patient Records Lookup</h1>
-                    <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Search medical history, prescriptions, and status using your Mobile Number</p>
+                    <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Search medical history, prescriptions, and status using your registered mobile number or appointment ID</p>
                 </div>
 
-                {/* Search Bar Container */}
+                {/* Search Card Container */}
                 <div className="bg-white p-6 md:p-8 rounded-[2.5rem] shadow-xl shadow-slate-200/50 border border-slate-100 mb-10 max-w-2xl mx-auto">
+                    
+                    {/* Search Mode Tabs */}
+                    <div className="flex bg-slate-100 rounded-2xl p-1.5 mb-6">
+                        <button
+                            type="button"
+                            onClick={() => handleTabSwitch('mobile')}
+                            className={`flex-1 flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl font-black text-xs uppercase tracking-widest transition-all duration-300 ${
+                                searchMode === 'mobile'
+                                    ? 'bg-white text-primary shadow-lg shadow-primary/10'
+                                    : 'text-slate-400 hover:text-slate-600'
+                            }`}
+                        >
+                            <FiPhone className="text-base" />
+                            Registered Mobile
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => handleTabSwitch('appointment')}
+                            className={`flex-1 flex items-center justify-center gap-2 py-3.5 px-4 rounded-xl font-black text-xs uppercase tracking-widest transition-all duration-300 ${
+                                searchMode === 'appointment'
+                                    ? 'bg-white text-primary shadow-lg shadow-primary/10'
+                                    : 'text-slate-400 hover:text-slate-600'
+                            }`}
+                        >
+                            <FiHash className="text-base" />
+                            Appointment ID
+                        </button>
+                    </div>
+
+                    {/* Search Form */}
                     <form onSubmit={handleSearch} className="flex flex-col md:flex-row gap-4">
                         <div className="flex-1 relative">
-                            <FiPhone className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 text-lg" />
-                            <input
-                                type="text"
-                                placeholder="Enter Mobile Number (e.g. +91 9942199618)"
-                                value={mobileNumber}
-                                onChange={e => setMobileNumber(e.target.value)}
-                                className="w-full h-16 bg-slate-50 rounded-2xl pl-14 pr-6 font-bold text-slate-800 border-2 border-transparent focus:border-primary outline-none transition-all"
-                            />
+                            <AnimatePresence mode="wait">
+                                {searchMode === 'mobile' ? (
+                                    <motion.div
+                                        key="mobile-input"
+                                        initial={{ opacity: 0, x: -20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        exit={{ opacity: 0, x: 20 }}
+                                        transition={{ duration: 0.2 }}
+                                        className="relative"
+                                    >
+                                        <FiPhone className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 text-lg" />
+                                        <input
+                                            type="text"
+                                            placeholder="Enter Registered Mobile Number (e.g. +91 9942199618)"
+                                            value={mobileNumber}
+                                            onChange={e => setMobileNumber(e.target.value)}
+                                            className="w-full h-16 bg-slate-50 rounded-2xl pl-14 pr-6 font-bold text-slate-800 border-2 border-transparent focus:border-primary outline-none transition-all"
+                                        />
+                                    </motion.div>
+                                ) : (
+                                    <motion.div
+                                        key="appointment-input"
+                                        initial={{ opacity: 0, x: -20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        exit={{ opacity: 0, x: 20 }}
+                                        transition={{ duration: 0.2 }}
+                                        className="relative"
+                                    >
+                                        <FiHash className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 text-lg" />
+                                        <input
+                                            type="text"
+                                            placeholder="Enter Appointment ID (e.g. APT-2A3B4C)"
+                                            value={appointmentId}
+                                            onChange={e => setAppointmentId(e.target.value)}
+                                            className="w-full h-16 bg-slate-50 rounded-2xl pl-14 pr-6 font-bold text-slate-800 border-2 border-transparent focus:border-primary outline-none transition-all"
+                                        />
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
                         </div>
                         <button
                             type="submit"
@@ -75,6 +151,13 @@ const MobileLookup = () => {
                             {loading ? 'Searching...' : 'Search Records'} <FiSearch />
                         </button>
                     </form>
+
+                    {/* Helpful hint below the search */}
+                    <p className="text-center text-[10px] font-bold uppercase tracking-widest text-slate-300 mt-4">
+                        {searchMode === 'mobile'
+                            ? '🔒 Enter the mobile number used during registration to find all your records'
+                            : '🔒 Enter the appointment ID received during booking to find a specific record'}
+                    </p>
                 </div>
 
                 {/* Results Section */}
