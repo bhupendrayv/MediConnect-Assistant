@@ -9,6 +9,8 @@ try {
 
 const Appointment = require('../models/Appointment');
 
+const { completePayment } = require('../utils/paymentUtils');
+
 const createStripeSessionController = async (req, res) => {
     try {
         if (!stripe) {
@@ -29,7 +31,15 @@ const createStripeSessionController = async (req, res) => {
             });
         }
 
-        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+        // Determine dynamic frontend URL based on request headers (origin / referer) or env
+        let origin = req.headers.origin;
+        if (!origin && req.headers.referer) {
+            try {
+                const refUrl = new URL(req.headers.referer);
+                origin = `${refUrl.protocol}//${refUrl.host}`;
+            } catch (e) {}
+        }
+        const frontendUrl = (origin || process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
 
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ['card'],
@@ -83,10 +93,7 @@ const verifyStripePaymentController = async (req, res) => {
         if (!stripe) {
             // Mock confirmation for testing if Stripe secret is not configured
             if (appointmentId) {
-                await Appointment.findByIdAndUpdate(appointmentId, {
-                    paymentStatus: 'paid',
-                    status: 'approved'
-                });
+                await completePayment(appointmentId, 'online', { stripeSessionId: sessionId });
             }
             return res.status(200).send({
                 success: true,
@@ -97,15 +104,15 @@ const verifyStripePaymentController = async (req, res) => {
         const session = await stripe.checkout.sessions.retrieve(sessionId);
 
         if (session.payment_status === 'paid') {
-            await Appointment.findByIdAndUpdate(appointmentId, {
-                paymentStatus: 'paid',
-                status: 'approved',
+            const updated = await completePayment(appointmentId, 'online', {
                 stripeSessionId: sessionId,
+                stripePaymentIntentId: session.payment_intent || sessionId
             });
 
             res.status(200).send({
                 success: true,
                 message: "Payment verified and appointment confirmed",
+                data: updated
             });
         } else {
             res.status(400).send({

@@ -1,112 +1,66 @@
 import { useState, useEffect, useCallback } from 'react';
 import Layout from '../components/layout/Layout';
-import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
+import api from '../services/api';
 import { Table, Tag, message, Tooltip } from 'antd';
 import moment from 'moment';
-import { FiCheckCircle, FiClock, FiXCircle, FiDownload } from 'react-icons/fi';
+import { FiCheckCircle, FiClock, FiXCircle, FiDownload, FiCalendar, FiUser, FiActivity } from 'react-icons/fi';
 import { motion } from 'framer-motion';
+import AppointmentReceipt from '../components/AppointmentReceipt';
 
 const Payments = () => {
+    const navigate = useNavigate();
     const [appointments, setAppointments] = useState([]);
     const [loading, setLoading] = useState(false);
     const [paymentSuccess, setPaymentSuccess] = useState(false);
+    const [confirmedAppointment, setConfirmedAppointment] = useState(null);
+    const [selectedReceiptAppointment, setSelectedReceiptAppointment] = useState(null);
 
     const printReceipt = (record) => {
-        const doc = record.doctorInfo || {};
-        const user = record.userInfo || {};
-        const doctorName = doc.name?.toLowerCase().startsWith('dr') ? doc.name : `Dr. ${doc.name}`;
-        const txId = record.transactionId || 'N/A';
-        // QR code data - compact patient record summary
-        const qrData = encodeURIComponent(
-            `Code:${record.appointmentCode}|Patient:${user.name || 'N/A'}|Doctor:${doctorName}|Spec:${doc.specialization || 'N/A'}|Date:${record.date}|Time:${record.time}|Amt:${record.totalAmount}|Status:PAID`
-        );
-        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${qrData}&margin=4`;
-
-        const html = `<!DOCTYPE html><html><head><title>Receipt - ${record.appointmentCode}</title>
-        <style>
-        body{font-family:Arial,sans-serif;padding:40px;color:#1e293b;max-width:600px;margin:auto}
-        .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
-        .header-left h1{color:#10b981;font-size:28px;margin:0 0 4px 0}
-        .header-left h2{font-size:14px;color:#64748b;margin:0}
-        .qr-box{border:1px solid #e2e8f0;border-radius:8px;padding:6px;text-align:center}
-        .qr-box img{display:block;width:90px;height:90px}
-        .qr-box p{margin:4px 0 0;font-size:9px;color:#94a3b8;letter-spacing:1px}
-        .code{background:#f0fdf4;border:2px solid #10b981;border-radius:12px;padding:16px;text-align:center;margin:20px 0}
-        .code h3{font-size:36px;color:#10b981;margin:0;letter-spacing:4px}
-        table{width:100%;border-collapse:collapse;margin-top:16px}
-        td{padding:10px 8px;border-bottom:1px solid #e2e8f0;font-size:14px}
-        td:first-child{color:#64748b;font-weight:600;width:40%}
-        td:last-child{font-weight:700} .paid{color:#10b981;font-weight:700}
-        .footer{margin-top:32px;text-align:center;color:#94a3b8;font-size:12px;border-top:1px solid #e2e8f0;padding-top:16px}
-        @media print{button{display:none}}
-        </style></head>
-        <body>
-        <div class='header'>
-          <div class='header-left'>
-            <h1>SmartHealth</h1>
-            <h2>Appointment Receipt</h2>
-          </div>
-          <div class='qr-box'>
-            <img src='${qrUrl}' alt='QR Code' />
-            <p>SCAN FOR DETAILS</p>
-          </div>
-        </div>
-        <div class='code'><p style='margin:0;font-size:11px;color:#64748b;letter-spacing:3px'>VERIFICATION CODE</p>
-        <h3>${record.appointmentCode}</h3><p style='margin:4px 0 0;color:#10b981;font-size:13px'>✓ Booking Confirmed</p></div>
-        <table>
-        <tr><td>Patient Name</td><td>${user.name || 'N/A'}</td></tr>
-        <tr><td>Doctor</td><td>${doctorName || 'N/A'}</td></tr>
-        <tr><td>Specialization</td><td>${doc.specialization || 'N/A'}</td></tr>
-        <tr><td>Date</td><td>${record.date || 'N/A'}</td></tr>
-        <tr><td>Time</td><td>${record.time || 'N/A'}</td></tr>
-        <tr><td>Amount Paid</td><td>₹${record.totalAmount || doc.feesPerConsultation || 'N/A'}</td></tr>
-        <tr><td>Payment Status</td><td class='paid'>✓ PAID</td></tr>
-        <tr><td>Transaction ID</td><td style='font-size:11px;word-break:break-all'>${txId}</td></tr>
-        <tr><td>Date of Payment</td><td>${moment(record.updatedAt || record.createdAt).format('DD MMM YYYY, hh:mm A')}</td></tr>
-        </table>
-        <div class='footer'><p>© 2024 Smart Health Assistant. All Rights Reserved.</p>
-        <p>For support: medi.connectofficial2026@gmail.com</p></div>
-        <script>window.onload=function(){window.print();}</script>
-        </body></html>`;
-        const w = window.open('', '_blank');
-        w.document.write(html);
-        w.document.close();
+        setSelectedReceiptAppointment(record);
     };
 
-    const getPayments = useCallback(async () => {
+    const getPayments = useCallback(async (existingConfirmed = null) => {
         try {
             setLoading(true);
-            const res = await axios.get('/user/user-appointments', {
-                headers: {
-                    Authorization: `Bearer ${localStorage.getItem('token')}`,
-                },
-            });
+            const res = await api.get('/user/user-appointments');
             setLoading(false);
             if (res.data.success) {
-                setAppointments(res.data.data);
+                const list = res.data.data || [];
+                setAppointments(list);
+                if (!existingConfirmed) {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const apptId = urlParams.get('appointmentId');
+                    if (apptId) {
+                        const matched = list.find(a => a._id === apptId);
+                        if (matched) {
+                            setConfirmedAppointment(matched);
+                            setPaymentSuccess(true);
+                        }
+                    }
+                }
             }
         } catch (error) {
             setLoading(false);
             console.log(error);
         }
-    }, [setAppointments]);
+    }, []);
 
     const verifyStripePayment = useCallback(async (sessionId, appointmentId) => {
         try {
             setLoading(true);
-            message.loading({ content: 'Verifying your payment...', key: 'verify', duration: 0 });
-            const res = await axios.post('/user/verify-stripe-payment', { sessionId, appointmentId }, {
-                headers: {
-                    Authorization: `Bearer ${localStorage.getItem('token')}`,
-                },
-            });
+            message.loading({ content: 'Verifying your payment with Stripe...', key: 'verify', duration: 0 });
+            const res = await api.post('/user/verify-stripe-payment', { sessionId, appointmentId });
             setLoading(false);
             message.destroy('verify');
             if (res.data.success) {
                 setPaymentSuccess(true);
+                if (res.data.data) {
+                    setConfirmedAppointment(res.data.data);
+                }
                 message.success('🎉 Payment Successful! Your appointment is confirmed.');
                 window.history.replaceState({}, document.title, window.location.pathname);
-                getPayments();
+                getPayments(res.data.data);
             } else {
                 message.error('Payment verification failed. Please contact support.');
                 getPayments();
@@ -116,6 +70,7 @@ const Payments = () => {
             message.destroy('verify');
             console.log(error);
             message.error('Error verifying Stripe payment');
+            getPayments();
         }
     }, [getPayments]);
 
@@ -157,19 +112,30 @@ const Payments = () => {
         },
         {
             title: 'Payment Status',
-            dataIndex: 'paymentStatus',
             key: 'paymentStatus',
-            render: (status) => {
+            render: (record) => {
+                const { paymentStatus, paymentMethod } = record;
+                const isPaid = paymentStatus === 'paid';
+                const methodStr = paymentMethod === 'cash' ? '💵 Cash' : '💳 Online';
+                
                 let icon = <FiClock className="mr-1" />;
-                if (status === 'paid') {
+                if (isPaid) {
                     icon = <FiCheckCircle className="mr-1" />;
-                } else if (status === 'failed') {
+                } else if (paymentStatus === 'failed') {
                     icon = <FiXCircle className="mr-1" />;
                 }
+
                 return (
-                    <Tag icon={icon} color={status === 'paid' ? 'success' : status === 'failed' ? 'error' : 'processing'} className="rounded-full px-4 py-1 font-bold uppercase tracking-widest text-[10px]">
-                        {status || 'pending'}
-                    </Tag>
+                    <div className="flex items-center gap-2">
+                        <Tag 
+                            icon={icon} 
+                            color={isPaid ? 'success' : paymentStatus === 'failed' ? 'error' : paymentMethod === 'cash' ? 'error' : 'processing'} 
+                            className={`rounded-full px-4 py-1 font-bold uppercase tracking-widest text-[10px] m-0 ${!isPaid && paymentMethod === 'cash' ? 'animate-pulse' : ''}`}
+                        >
+                            {isPaid ? 'PAID' : paymentMethod === 'cash' ? 'CASH PENDING' : paymentStatus || 'PENDING'}
+                        </Tag>
+                        <Tag color="default" className="m-0 font-bold text-[9px] border-slate-200 text-slate-500 rounded-full">{methodStr}</Tag>
+                    </div>
                 );
             }
         },
@@ -200,13 +166,25 @@ const Payments = () => {
                 record.paymentStatus === 'paid' ? (
                     <button
                         onClick={() => printReceipt(record)}
-                        className="flex items-center gap-2 bg-primary text-white text-xs font-black uppercase tracking-widest px-4 py-2 rounded-full hover:bg-emerald-600 transition-all hover:scale-105 shadow-md shadow-primary/20"
+                        className="flex items-center gap-2 bg-primary text-white text-xs font-black uppercase tracking-widest px-4 py-2 rounded-full hover:bg-emerald-600 transition-all hover:scale-105 shadow-md shadow-primary/20 cursor-pointer"
                     >
                         <FiDownload />
                         Receipt
                     </button>
                 ) : (
-                    <span className="text-slate-300 text-xs font-bold uppercase">—</span>
+                    <button
+                        onClick={() => {
+                            if (record.paymentStatus === 'pending_cash') {
+                                message.warning('Receipt will be available once cash payment is confirmed at the clinic counter.');
+                            } else {
+                                message.warning('Receipt will be available once payment is completed.');
+                            }
+                        }}
+                        className="flex items-center gap-2 bg-slate-200 text-slate-400 text-xs font-black uppercase tracking-widest px-4 py-2 rounded-full cursor-not-allowed opacity-70"
+                    >
+                        <FiDownload />
+                        Locked
+                    </button>
                 )
             )
         }
@@ -224,24 +202,89 @@ const Payments = () => {
                     <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Track your consultation bills and transactions</p>
                 </motion.div>
 
-                {/* Payment Success Banner */}
+                {/* Payment Success & Appointment Confirmed Card */}
                 {paymentSuccess && (
                     <motion.div
-                        initial={{ opacity: 0, y: -20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="mb-8 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-3xl p-8 text-white shadow-xl shadow-emerald-200 flex items-center gap-6"
+                        initial={{ opacity: 0, y: -20, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        className="mb-10 bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950 rounded-[2.5rem] p-8 md:p-10 text-white shadow-2xl border border-emerald-500/30 relative overflow-hidden"
                     >
-                        <div className="bg-white/20 rounded-2xl p-4">
-                            <FiCheckCircle className="text-white text-4xl" />
+                        {/* Ambient Glow */}
+                        <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none" />
+                        <div className="absolute bottom-0 left-1/3 w-64 h-64 bg-teal-500/10 rounded-full blur-2xl pointer-events-none" />
+
+                        <div className="relative z-10">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-white/10">
+                                <div className="flex items-start md:items-center gap-4">
+                                    <div className="w-16 h-16 rounded-2xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-3xl text-emerald-400 shadow-lg shadow-emerald-500/20 flex-shrink-0">
+                                        <FiCheckCircle />
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className="px-3 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-black uppercase tracking-widest border border-emerald-500/30">
+                                                Payment Verified ✓
+                                            </span>
+                                            <span className="px-3 py-0.5 rounded-full bg-white/10 text-white/70 text-[10px] font-bold uppercase tracking-widest">
+                                                Online Card / Stripe
+                                            </span>
+                                        </div>
+                                        <h2 className="text-2xl md:text-3xl font-black italic uppercase tracking-tight text-white">
+                                            Payment Successful & Appointment Booked!
+                                        </h2>
+                                        <p className="text-slate-300 text-xs mt-1">
+                                            Your payment has been received and consultation slot is confirmed. Please keep your verification code handy.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-3 flex-wrap">
+                                    {confirmedAppointment && (
+                                        <button
+                                            onClick={() => setSelectedReceiptAppointment(confirmedAppointment)}
+                                            className="px-6 py-3.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-emerald-500/25 flex items-center gap-2"
+                                        >
+                                            <FiDownload className="text-sm" />
+                                            Download Receipt
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={() => navigate('/appointments')}
+                                        className="px-5 py-3.5 bg-white/10 hover:bg-white/20 text-white font-black text-xs uppercase tracking-widest rounded-xl transition-all"
+                                    >
+                                        My Appointments
+                                    </button>
+                                    <button
+                                        onClick={() => setPaymentSuccess(false)}
+                                        className="text-white/40 hover:text-white font-bold text-lg p-2"
+                                        title="Dismiss"
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Summary Details */}
+                            {confirmedAppointment && (
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-2">
+                                    <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Unique Code</p>
+                                        <p className="text-lg font-black font-mono tracking-wider text-white mt-1">{confirmedAppointment.appointmentCode || 'Confirmed'}</p>
+                                    </div>
+                                    <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Doctor / Specialist</p>
+                                        <p className="text-sm font-bold text-white mt-1 truncate">{confirmedAppointment.doctorInfo?.name || 'Assigned Specialist'}</p>
+                                    </div>
+                                    <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Date & Slot</p>
+                                        <p className="text-sm font-bold text-white mt-1">{confirmedAppointment.date || 'Scheduled'} {confirmedAppointment.time ? `• ${confirmedAppointment.time}` : ''}</p>
+                                    </div>
+                                    <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Amount Paid</p>
+                                        <p className="text-lg font-black text-emerald-400 mt-1">₹{confirmedAppointment.totalAmount || confirmedAppointment.doctorInfo?.feesPerConsultation || 500}</p>
+                                    </div>
+                                </div>
+                            )}
                         </div>
-                        <div>
-                            <h2 className="text-2xl font-black uppercase tracking-tight">Payment Successful! 🎉</h2>
-                            <p className="text-emerald-100 font-bold text-sm mt-1">Your appointment has been confirmed and payment recorded. Click <strong>Receipt</strong> in the table below to download your PDF.</p>
-                        </div>
-                        <button
-                            onClick={() => setPaymentSuccess(false)}
-                            className="ml-auto text-white/60 hover:text-white font-bold text-xl"
-                        >×</button>
                     </motion.div>
                 )}
 
@@ -253,13 +296,21 @@ const Payments = () => {
                 >
                     <Table 
                         columns={columns} 
-                        dataSource={appointments.filter(app => app.totalAmount > 0)} 
+                        dataSource={appointments.filter(app => (app.totalAmount > 0 || app.paymentStatus === 'paid'))} 
                         loading={loading}
                         rowKey="_id"
                         pagination={{ pageSize: 8 }}
                         className="custom-table"
                     />
                 </motion.div>
+
+                {/* Receipt Modal */}
+                {selectedReceiptAppointment && (
+                    <AppointmentReceipt
+                        appointment={selectedReceiptAppointment}
+                        onClose={() => setSelectedReceiptAppointment(null)}
+                    />
+                )}
             </div>
         </Layout>
     );
