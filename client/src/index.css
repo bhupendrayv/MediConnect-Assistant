@@ -7,6 +7,43 @@ body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
+/* ===== Global Typography Normalization ===== */
+/* Remove all bold / black font-weight overrides */
+* {
+    font-weight: normal !important;
+    font-style: normal !important;
+    text-transform: none !important;
+    letter-spacing: normal !important;
+}
+
+/* Keep headings slightly bolder for hierarchy (semibold, not black) */
+h1, h2, h3, h4, h5, h6 {
+    font-weight: 600 !important;
+}
+
+/* Keep buttons readable with medium weight */
+button, [type="submit"], [type="button"], .ant-btn {
+    font-weight: 500 !important;
+}
+
+/* Keep table headers medium weight */
+th, thead td {
+    font-weight: 500 !important;
+}
+
+/* Keep tags/badges readable */
+.ant-tag {
+    font-weight: 500 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.025em !important;
+}
+
+/* Keep nav items readable */
+nav a, .ant-menu-item {
+    font-weight: 500 !important;
+}
+
+
 @keyframes blob {
     0% {
         transform: translate(0px, 0px) scale(1);

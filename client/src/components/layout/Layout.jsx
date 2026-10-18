@@ -4,8 +4,9 @@ import { useLocation, Link, useNavigate } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { setUser } from '../../redux/features/userSlice';
 import { message } from 'antd';
-import { FiActivity, FiBell, FiCalendar, FiCpu, FiGrid, FiHome, FiLogOut, FiMenu, FiSettings, FiUser, FiUserCheck, FiDroplet, FiCamera, FiCreditCard, FiPlusCircle, FiSearch } from 'react-icons/fi';
+import { FiActivity, FiBell, FiCalendar, FiCpu, FiGrid, FiHome, FiLogOut, FiMenu, FiSettings, FiUser, FiUserCheck, FiDroplet, FiCamera, FiCreditCard, FiPlusCircle, FiSearch, FiX } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
+import ThemeToggle from '../ThemeToggle';
 
 const Layout = ({ children }) => {
     const { user } = useSelector((state) => state.user);
@@ -13,6 +14,7 @@ const Layout = ({ children }) => {
     const navigate = useNavigate();
     const dispatch = useDispatch();
     const [collapsed, setCollapsed] = useState(false);
+    const [mobileOpen, setMobileOpen] = useState(false);
 
     // Menu list based on role
     const userMenu = [
@@ -72,7 +74,7 @@ const Layout = ({ children }) => {
                     );
                     if (res.data.success) {
                         message.success(res.data.message);
-                        dispatch(setUser(res.data.data)); // Update redux state with new image
+                        dispatch(setUser(res.data.data));
                     } else {
                         message.error(res.data.message);
                     }
@@ -85,98 +87,164 @@ const Layout = ({ children }) => {
         }
     };
 
+    const SidebarContent = ({ isMobile = false }) => (
+        <>
+            {/* Logo */}
+            <Link to="/" className="px-6 mb-10 flex items-center gap-4 group cursor-pointer no-underline" style={{ textDecoration: 'none' }}>
+                <div className="bg-primary p-3 rounded-2xl shadow-xl shadow-primary/20 shrink-0 group-hover:scale-110 transition-transform">
+                    <FiActivity className="text-white text-2xl" />
+                </div>
+                {(!collapsed || isMobile) && (
+                    <span
+                        className="text-2xl font-black italic tracking-tighter uppercase select-none leading-none"
+                        style={{ color: '#ffffff', textDecoration: 'none' }}
+                    >
+                        Health<span style={{ color: '#10b981' }}>Hub.</span>
+                    </span>
+                )}
+            </Link>
+
+            {/* Navigation */}
+            <div className="flex-1 px-3 space-y-1 overflow-y-auto">
+                <Link to="/" onClick={() => isMobile && setMobileOpen(false)}>
+                    <div className={`flex items-center gap-4 px-5 py-3.5 rounded-2xl transition-all group ${location.pathname === '/' ? 'bg-primary text-white shadow-xl shadow-primary/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
+                        <span className="text-xl shrink-0 group-hover:scale-110 transition-transform"><FiHome /></span>
+                        {(!collapsed || isMobile) && <span className="font-black italic uppercase tracking-widest text-xs">Public Site</span>}
+                    </div>
+                </Link>
+                <div className="h-px bg-white/5 mx-4 my-2 opacity-50"></div>
+                {menuToBeRendered.map((menu) => {
+                    const isActive = location.pathname === menu.path;
+                    return (
+                        <Link key={menu.name} to={menu.path} onClick={() => isMobile && setMobileOpen(false)}>
+                            <div className={`flex items-center gap-4 px-5 py-3.5 rounded-2xl transition-all group ${isActive ? 'bg-primary text-white shadow-xl shadow-primary/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
+                                <span className="text-xl shrink-0">{menu.icon}</span>
+                                {(!collapsed || isMobile) && <span className="font-black italic uppercase tracking-widest text-xs">{menu.name}</span>}
+                                {isActive && (!collapsed || isMobile) && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_10px_white]"></div>}
+                            </div>
+                        </Link>
+                    );
+                })}
+            </div>
+
+            {/* Footer Actions */}
+            <div className="p-4 border-t border-white/5">
+                <div
+                    onClick={handleLogout}
+                    className="flex items-center gap-4 px-5 py-3.5 rounded-2xl text-slate-500 hover:text-red-400 hover:bg-red-400/5 transition-all cursor-pointer group"
+                >
+                    <FiLogOut className="text-xl shrink-0 group-hover:rotate-180 transition-transform duration-500" />
+                    {(!collapsed || isMobile) && <span className="font-black italic uppercase tracking-widest text-xs">Sign Out</span>}
+                </div>
+            </div>
+        </>
+    );
+
     return (
         <div className="flex h-screen bg-slate-50 font-sans overflow-hidden">
-            {/* Sidebar */}
-            <motion.div
-                initial={false}
-                animate={{ width: collapsed ? 100 : 300 }}
-                className="bg-slate-900 h-full relative z-20 shadow-2xl flex flex-col pt-10"
-            >
-                {/* Logo */}
-                <Link to="/" className="px-8 mb-12 flex items-center gap-4 group cursor-pointer">
-                    <div className="bg-primary p-3 rounded-2xl shadow-xl shadow-primary/20 shrink-0 group-hover:scale-110 transition-transform">
-                        <FiActivity className="text-white text-2xl" />
-                    </div>
-                    {!collapsed && (
-                        <motion.span
+
+            {/* ── Mobile Overlay Drawer ── */}
+            <AnimatePresence>
+                {mobileOpen && (
+                    <>
+                        {/* Backdrop */}
+                        <motion.div
+                            key="backdrop"
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
-                            className="text-2xl font-black text-white italic tracking-tighter uppercase"
+                            exit={{ opacity: 0 }}
+                            onClick={() => setMobileOpen(false)}
+                            className="fixed inset-0 bg-black/50 z-40 md:hidden"
+                        />
+                        {/* Drawer */}
+                        <motion.div
+                            key="drawer"
+                            initial={{ x: -320 }}
+                            animate={{ x: 0 }}
+                            exit={{ x: -320 }}
+                            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                            className="fixed top-0 left-0 h-full w-72 bg-slate-900 z-50 flex flex-col pt-10 shadow-2xl md:hidden"
                         >
-                            Health<span className="text-primary">Hub.</span>
-                        </motion.span>
-                    )}
-                </Link>
+                            {/* Close button */}
+                            <button
+                                onClick={() => setMobileOpen(false)}
+                                className="absolute top-4 right-4 w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-all"
+                            >
+                                <FiX className="text-lg" />
+                            </button>
+                            <SidebarContent isMobile={true} />
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
 
-                {/* Navigation */}
-                <div className="flex-1 px-4 space-y-2">
-                    <Link to="/">
-                        <div className={`flex items-center gap-4 px-6 py-4 rounded-2xl transition-all group ${location.pathname === '/' ? 'bg-primary text-white shadow-xl shadow-primary/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
-                            <span className="text-xl group-hover:scale-110 transition-transform"><FiHome /></span>
-                            {!collapsed && <span className="font-black italic uppercase tracking-widest text-xs">Public Site</span>}
-                        </div>
-                    </Link>
-                    <div className="h-px bg-white/5 mx-4 my-2 opacity-50"></div>
-                    {menuToBeRendered.map((menu) => {
-                        const isActive = location.pathname === menu.path;
-                        return (
-                            <Link key={menu.name} to={menu.path}>
-                                <div className={`flex items-center gap-4 px-6 py-4 rounded-2xl transition-all group ${isActive ? 'bg-primary text-white shadow-xl shadow-primary/20' : 'text-slate-400 hover:text-white hover:bg-white/5'}`}>
-                                    <span className="text-xl">{menu.icon}</span>
-                                    {!collapsed && <span className="font-black italic uppercase tracking-widest text-xs">{menu.name}</span>}
-                                    {isActive && !collapsed && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-white shadow-[0_0_10px_white]"></div>}
-                                </div>
-                            </Link>
-                        );
-                    })}
-                </div>
-
-                {/* Footer Actions */}
-                <div className="p-4 border-t border-white/5">
-                    <div
-                        onClick={handleLogout}
-                        className="flex items-center gap-4 px-6 py-4 rounded-2xl text-slate-500 hover:text-red-400 hover:bg-red-400/5 transition-all cursor-pointer group"
-                    >
-                        <FiLogOut className="text-xl group-hover:rotate-180 transition-transform duration-500" />
-                        {!collapsed && <span className="font-black italic uppercase tracking-widest text-xs">Sign Out</span>}
-                    </div>
-                </div>
+            {/* ── Desktop Sidebar ── */}
+            <motion.div
+                initial={false}
+                animate={{ width: collapsed ? 80 : 280 }}
+                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                className="bg-slate-900 h-full relative z-20 shadow-2xl flex-col pt-10 hidden md:flex overflow-hidden"
+            >
+                <SidebarContent isMobile={false} />
             </motion.div>
 
-            {/* Main Content Area */}
-            <div className="flex-1 flex flex-col h-screen relative">
+            {/* ── Main Content Area ── */}
+            <div className="flex-1 flex flex-col h-screen relative min-w-0">
                 {/* Header */}
-                <header className="h-24 bg-white/70 backdrop-blur-xl flex items-center justify-between px-10 border-b border-slate-100 z-10 shrink-0">
-                    <div className="flex items-center gap-6">
+                <header className="h-20 bg-white/80 backdrop-blur-xl flex items-center justify-between px-6 md:px-10 border-b border-slate-100 z-10 shrink-0 shadow-sm">
+                    <div className="flex items-center gap-4">
+                        {/* Toggle button – works on both mobile and desktop */}
                         <button
-                            onClick={() => setCollapsed(!collapsed)}
-                            className="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 hover:text-primary transition-colors"
+                            id="sidebar-toggle-btn"
+                            onClick={() => {
+                                // On mobile toggle mobile drawer; on desktop collapse
+                                if (window.innerWidth < 768) {
+                                    setMobileOpen(prev => !prev);
+                                } else {
+                                    setCollapsed(prev => !prev);
+                                }
+                            }}
+                            className="w-11 h-11 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-500 hover:text-primary hover:border-primary/30 hover:bg-emerald-50 transition-all shadow-sm"
+                            title="Toggle Sidebar"
+                            aria-label="Toggle Sidebar"
                         >
-                            <FiMenu className="text-xl" />
+                            <motion.div
+                                animate={{ rotate: collapsed ? 180 : 0 }}
+                                transition={{ duration: 0.3 }}
+                            >
+                                <FiMenu className="text-xl" />
+                            </motion.div>
                         </button>
+
                         <div className="hidden md:block">
-                            <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 mb-1">Current Portal</h2>
-                            <p className="font-black italic uppercase text-slate-800 tracking-tight">{user?.isAdmin ? 'Administrator' : user?.isDoctor ? 'Verfied Doctor' : 'Patient Central'}</p>
+                            <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-400 mb-0.5">Current Portal</h2>
+                            <p className="font-black italic uppercase text-slate-800 tracking-tight text-sm leading-none">
+                                {user?.isAdmin ? 'Administrator' : user?.isDoctor ? 'Verified Doctor' : 'Patient Central'}
+                            </p>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-8">
+                    <div className="flex items-center gap-3 md:gap-5">
+                        {/* Light/Dark Mode Toggle */}
+                        <div className="flex items-center" title="Toggle Light/Dark Mode">
+                            <ThemeToggle />
+                        </div>
+
                         {/* Notifications */}
                         <div
-                            className="relative w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 cursor-pointer hover:text-primary transition-all"
+                            className="relative w-11 h-11 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 cursor-pointer hover:text-primary hover:border-primary/30 hover:bg-emerald-50 transition-all shadow-sm"
                             onClick={() => navigate('/notification')}
                         >
                             <FiBell className="text-xl" />
                             {user?.unseenNotifications?.length > 0 && (
-                                <span className="absolute -top-1 -right-1 bg-red-500 w-5 h-5 rounded-full text-white text-[10px] font-black flex items-center justify-center border-4 border-white">
+                                <span className="absolute -top-1 -right-1 bg-red-500 w-5 h-5 rounded-full text-white text-[9px] font-black flex items-center justify-center border-2 border-white shadow">
                                     {user.unseenNotifications.length}
                                 </span>
                             )}
                         </div>
 
                         {/* Profile */}
-                        <div className="flex items-center gap-4 pl-8 border-l border-slate-100">
+                        <div className="flex items-center gap-3 pl-4 md:pl-6 border-l border-slate-100">
                             <input
                                 type="file"
                                 ref={fileInputRef}
@@ -185,21 +253,21 @@ const Layout = ({ children }) => {
                                 onChange={handleImageChange}
                             />
                             <div className="text-right hidden sm:block">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 leading-none mb-1">Welcome</p>
-                                <p className="font-black italic uppercase text-slate-800 tracking-tight leading-none">{user?.name}</p>
+                                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 leading-none mb-1">Welcome</p>
+                                <p className="font-black italic uppercase text-slate-800 tracking-tight leading-none text-sm">{user?.name}</p>
                             </div>
                             <div
                                 onClick={handleProfileClick}
-                                className="w-14 h-14 bg-gradient-to-br from-primary/10 to-primary/20 rounded-2xl flex items-center justify-center text-primary font-black text-xl shadow-inner border border-white/50 cursor-pointer overflow-hidden relative group"
+                                className="w-12 h-12 bg-gradient-to-br from-primary/20 to-emerald-600/30 rounded-2xl flex items-center justify-center text-primary font-black text-lg shadow-inner border-2 border-white cursor-pointer overflow-hidden relative group"
                                 title="Click to change profile picture"
                             >
                                 {user?.image ? (
                                     <img src={user.image} alt={user.name} className="w-full h-full object-cover" />
                                 ) : (
-                                    user?.name?.charAt(0).toUpperCase()
+                                    <span className="text-emerald-700 font-black text-xl">{user?.name?.charAt(0).toUpperCase()}</span>
                                 )}
                                 <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <FiCamera className="text-white text-lg" />
+                                    <FiCamera className="text-white text-base" />
                                 </div>
                             </div>
                         </div>

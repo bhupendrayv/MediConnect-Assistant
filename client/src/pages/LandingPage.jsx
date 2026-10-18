@@ -715,7 +715,7 @@ const LandingPage = () => {
                                         onError={e => { e.target.onerror = null; e.target.src = selectedDoc.gender === 'male' ? '/doctors/male-doctor.png' : '/doctors/female-doctor.png'; }}
                                     />
 
-                                    {((user?.role === 'admin' || user?.isAdmin) || String(user?._id) === String(selectedDoc?._id) || String(user?._id) === String(selectedDoc?.userId)) && (
+                                    {(user?.role === 'admin' || user?.isAdmin) && (
                                         <>
                                             <input
                                                 type="file"
@@ -743,7 +743,7 @@ const LandingPage = () => {
                                                         handleEditClick();
                                                     }}
                                                     className="absolute bottom-4 right-4 bg-primary text-white p-4 rounded-2xl shadow-xl hover:bg-slate-800 transition-all z-30 border-2 border-white flex items-center gap-2 font-black uppercase tracking-widest text-[10px] pointer-events-auto"
-                                                    title="Edit Profile"
+                                                    title="Admin: Edit Profile"
                                                 >
                                                     <FiEdit2 size={16} /> Edit Profile
                                                 </button>
@@ -891,9 +891,11 @@ const LandingPage = () => {
                                                     <Link to="/register" onClick={() => setSelectedDoc(null)} className="flex-1 py-4 bg-primary text-white rounded-2xl font-black uppercase tracking-widest italic flex items-center justify-center gap-3 hover:bg-emerald-600 transition-all shadow-xl shadow-primary/20 text-xs">
                                                         Book Now <FiArrowRight />
                                                     </Link>
-                                                    <button onClick={handleEditClick} className="w-16 bg-slate-100 text-slate-500 rounded-2xl flex items-center justify-center text-xl hover:bg-slate-200 transition-all">
-                                                        <FiEdit2 />
-                                                    </button>
+                                                    {(user?.role === 'admin' || user?.isAdmin) && (
+                                                        <button onClick={handleEditClick} className="w-16 bg-slate-100 text-slate-500 rounded-2xl flex items-center justify-center text-xl hover:bg-slate-200 transition-all" title="Admin: Edit Profile">
+                                                            <FiEdit2 />
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </div>
                                         </>

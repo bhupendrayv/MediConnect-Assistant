@@ -268,8 +268,8 @@ const HomePage = () => {
                                                     </div>
                                                 )}
 
-                                                {/* Unified Edit Button - Always Visible for Authorized */}
-                                                {((user?.role === 'admin' || user?.isAdmin) || String(user?._id) === String(doctor?._id) || String(user?._id) === String(doctor?.userId)) && (
+                                                {/* Unified Edit Button - Always Visible for Admin Only */}
+                                                {(user?.role === 'admin' || user?.isAdmin) && (
                                                     <button
                                                         onClick={(e) => {
                                                             e.stopPropagation();
